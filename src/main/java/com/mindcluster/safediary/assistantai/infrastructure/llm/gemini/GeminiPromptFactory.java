@@ -1,5 +1,6 @@
 package com.mindcluster.safediary.assistantai.infrastructure.llm.gemini;
 
+import com.mindcluster.safediary.assistantai.application.internal.outboundservices.llm.LlmSummaryRequest;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.DistortionType;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PersonalityTone;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PlutchikEmotionTag;
@@ -55,6 +56,37 @@ public final class GeminiPromptFactory {
                         "riskScore", Map.of("type", "NUMBER"),
                         "distortions", Map.of("type", "ARRAY", "items", distortionItem)),
                 "required", List.of("reply", "emotion", "riskScore", "distortions"));
+    }
+
+    public static String summarySystemInstruction(String locale) {
+        return """
+                Redactas un resumen semanal para que un psicólogo prepare su próxima sesión con un paciente de SafeDiary.
+                Reglas obligatorias:
+                - Escribes en tercera persona ("el paciente"), en %s, con un máximo de 200 palabras.
+                - No diagnosticas ni recomiendas tratamientos.
+                - No copias frases literales del paciente: parafraseas.
+                Responde SOLO con JSON con "narrative" (síntesis), "keyTriggers" (máximo 5 detonantes breves) \
+                y "highlights" (máximo 5 observaciones breves).
+                """.formatted(languageName(locale));
+    }
+
+    public static Map<String, Object> summaryResponseSchema() {
+        var stringArray = Map.of("type", "ARRAY", "items", Map.of("type", "STRING"));
+        return Map.of(
+                "type", "OBJECT",
+                "properties", Map.of(
+                        "narrative", Map.of("type", "STRING"),
+                        "keyTriggers", stringArray,
+                        "highlights", stringArray),
+                "required", List.of("narrative", "keyTriggers", "highlights"));
+    }
+
+    public static String summaryUserPrompt(LlmSummaryRequest request) {
+        var builder = new StringBuilder("Emociones dominantes: ")
+                .append(names(request.dominantEmotions().toArray(Enum[]::new)))
+                .append("\nMensajes del paciente (orden cronológico):\n");
+        request.userMessages().forEach(message -> builder.append("- ").append(message).append('\n'));
+        return builder.toString();
     }
 
     private static String languageName(String locale) {

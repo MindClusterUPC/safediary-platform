@@ -11,6 +11,7 @@ import com.mindcluster.safediary.shared.infrastructure.events.DomainEventPublish
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -51,6 +52,20 @@ public class ConversationSessionRepositoryImpl implements ConversationSessionRep
         return persistenceRepository.findAllByAccountIdOrderByStartedAtDesc(accountId).stream()
                 .map(ConversationSessionPersistenceAssembler::toDomainFromPersistence)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ConversationSession> findAllByAccountIdOverlapping(Long accountId, Instant from, Instant to) {
+        return persistenceRepository.findOverlapping(accountId, from, to).stream()
+                .map(ConversationSessionPersistenceAssembler::toDomainFromPersistence)
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Long> findAccountIdsWithSessionsOverlapping(Instant from, Instant to) {
+        return persistenceRepository.findAccountIdsOverlapping(from, to);
     }
 
     @Override

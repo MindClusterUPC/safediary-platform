@@ -11,7 +11,9 @@ import com.mindcluster.safediary.assistantai.domain.model.aggregates.Conversatio
 import com.mindcluster.safediary.assistantai.domain.model.aggregates.RiskAssessment;
 import com.mindcluster.safediary.assistantai.domain.model.commands.*;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.CrisisHotline;
+import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PersonalityTone;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.RiskEvaluation;
+import com.mindcluster.safediary.assistantai.domain.model.valueobjects.SessionStatus;
 import com.mindcluster.safediary.assistantai.domain.repositories.ConversationSessionRepository;
 import com.mindcluster.safediary.assistantai.domain.repositories.RiskAssessmentRepository;
 import com.mindcluster.safediary.assistantai.domain.services.CognitiveDistortionService;
@@ -136,6 +138,21 @@ public class ConversationCommandServiceImpl implements ConversationCommandServic
         var crisisResources = saved.isInCrisis() ? crisisHotlineDirectory.findAll() : List.<CrisisHotline>of();
         return Result.success(new ReflectionResult(saved, messages.get(messages.size() - 2),
                 messages.get(messages.size() - 1), finalRisk.level(), crisisResources));
+    }
+
+    @Override
+    public Result<ReflectionResult, ApplicationError> handle(SendChatPromptCommand command) {
+        var conversationId = command.conversationId();
+        var session = Optional.<ConversationSession>empty();
+        if (conversationId != null && conversationId.matches("\\d+")) {
+            session = sessionRepository.findById(Long.valueOf(conversationId))
+                    .filter(s -> s.getAccountId().equals(command.accountId()))
+                    .filter(s -> s.getStatus() != SessionStatus.CLOSED);
+        }
+        if (session.isEmpty()) session = sessionRepository.findActiveByAccountId(command.accountId());
+        var resolved = session.orElseGet(() ->
+                sessionRepository.save(new ConversationSession(command.accountId(), PersonalityTone.EMPATHIC)));
+        return handle(new SendTextMessageCommand(resolved.getId(), command.prompt(), command.locale()));
     }
 
     @Override

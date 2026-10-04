@@ -6,12 +6,10 @@ import com.mindcluster.safediary.assistantai.domain.model.valueobjects.Personali
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PlutchikEmotionTag;
 
 import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Provider-neutral prompts (and JSON schemas) sent to the language model.
+ * Provider-neutral prompts sent to the language model.
  */
 public final class AssistantPromptFactory {
 
@@ -40,24 +38,6 @@ public final class AssistantPromptFactory {
                 names(DistortionType.values()));
     }
 
-    public static Map<String, Object> reflectionResponseSchema() {
-        var distortionItem = Map.of(
-                "type", "OBJECT",
-                "properties", Map.of(
-                        "type", Map.of("type", "STRING", "enum", enumNames(DistortionType.values())),
-                        "evidence", Map.of("type", "STRING"),
-                        "confidence", Map.of("type", "NUMBER")),
-                "required", List.of("type", "evidence", "confidence"));
-        return Map.of(
-                "type", "OBJECT",
-                "properties", Map.of(
-                        "reply", Map.of("type", "STRING"),
-                        "emotion", Map.of("type", "STRING", "enum", enumNames(PlutchikEmotionTag.values())),
-                        "riskScore", Map.of("type", "NUMBER"),
-                        "distortions", Map.of("type", "ARRAY", "items", distortionItem)),
-                "required", List.of("reply", "emotion", "riskScore", "distortions"));
-    }
-
     public static String summarySystemInstruction(String locale) {
         return """
                 Redactas un resumen semanal para que un psicólogo prepare su próxima sesión con un paciente de SafeDiary.
@@ -68,17 +48,6 @@ public final class AssistantPromptFactory {
                 Responde SOLO con JSON con "narrative" (síntesis), "keyTriggers" (máximo 5 detonantes breves) \
                 y "highlights" (máximo 5 observaciones breves).
                 """.formatted(languageName(locale));
-    }
-
-    public static Map<String, Object> summaryResponseSchema() {
-        var stringArray = Map.of("type", "ARRAY", "items", Map.of("type", "STRING"));
-        return Map.of(
-                "type", "OBJECT",
-                "properties", Map.of(
-                        "narrative", Map.of("type", "STRING"),
-                        "keyTriggers", stringArray,
-                        "highlights", stringArray),
-                "required", List.of("narrative", "keyTriggers", "highlights"));
     }
 
     public static String summaryUserPrompt(LlmSummaryRequest request) {
@@ -100,10 +69,6 @@ public final class AssistantPromptFactory {
             case ANALYTICAL -> "ayuda a ordenar pensamientos y detectar patrones, de forma directa.";
             case CALM -> "frases cortas, tono sereno y pausado; sugiere respirar.";
         };
-    }
-
-    private static List<String> enumNames(Enum<?>[] values) {
-        return Arrays.stream(values).map(Enum::name).toList();
     }
 
     private static String names(Enum<?>[] values) {

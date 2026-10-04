@@ -73,6 +73,19 @@ public class GeminiLlmAdapter implements AssistantLanguageModel {
         return new LlmReply(structured.reply(), structured.emotion(), structured.riskScore(), distortions);
     }
 
+    @Override
+    public LlmSummary synthesizeWeeklySummary(LlmSummaryRequest request) {
+        var contents = List.of(new GeminiContent("user",
+                List.of(new GeminiPart(GeminiPromptFactory.summaryUserPrompt(request)))));
+        var structured = generate(GeminiPromptFactory.summarySystemInstruction(request.locale()),
+                contents, GeminiPromptFactory.summaryResponseSchema(), 0.3, GeminiStructuredSummary.class);
+        if (structured.narrative() == null || structured.narrative().isBlank())
+            throw new LlmUnavailableException("Gemini returned an empty summary");
+        return new LlmSummary(structured.narrative(),
+                structured.keyTriggers() == null ? List.of() : structured.keyTriggers(),
+                structured.highlights() == null ? List.of() : structured.highlights());
+    }
+
     private <T> T generate(String systemInstruction, List<GeminiContent> contents,
                            Map<String, Object> schema, double temperature, Class<T> type) {
         var body = new GeminiGenerateContentRequest(

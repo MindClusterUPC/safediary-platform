@@ -14,5 +14,7 @@ public interface ConversationCommandService {
 
     Result<ReflectionResult, ApplicationError> handle(SendTextMessageCommand command);
 
+    Result<ConversationSession, ApplicationError> handle(ChangePersonalityToneCommand command);
+
     Result<ConversationSession, ApplicationError> handle(CloseConversationCommand command);
 }

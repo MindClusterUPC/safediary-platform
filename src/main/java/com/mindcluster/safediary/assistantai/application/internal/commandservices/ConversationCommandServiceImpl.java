@@ -102,6 +102,11 @@ public class ConversationCommandServiceImpl implements ConversationCommandServic
     }
 
     @Override
+    public Result<ConversationSession, ApplicationError> handle(ChangePersonalityToneCommand command) {
+        return applyToSession(command.sessionId(), session -> session.changeTone(command.tone()));
+    }
+
+    @Override
     public Result<ConversationSession, ApplicationError> handle(CloseConversationCommand command) {
         return applyToSession(command.sessionId(), ConversationSession::close);
     }

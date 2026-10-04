@@ -19,7 +19,7 @@ import java.util.Optional;
  * Conversation session aggregate root.
  * <p>
  * Represents a continuous reflective dialogue between the user and the AI companion.
- * A closed session rejects new messages.
+ * A session in crisis keeps accepting messages; only a closed session rejects them.
  * </p>
  */
 @Getter
@@ -112,6 +112,13 @@ public class ConversationSession extends AbstractDomainAggregateRoot<Conversatio
         return message;
     }
 
+    public void flagForCrisis() {
+        ensureNotClosed();
+        if (status == SessionStatus.CRISIS_TRIGGERED) return;
+        status = SessionStatus.CRISIS_TRIGGERED;
+        registerDomainEvent(new CrisisProtocolActivatedEvent(id, accountId, Instant.now()));
+    }
+
     public void changeTone(PersonalityTone tone) {
         ensureNotClosed();
         if (tone == null) throw new IllegalArgumentException("tone must not be null");
@@ -131,6 +138,10 @@ public class ConversationSession extends AbstractDomainAggregateRoot<Conversatio
      */
     public void markAsStarted() {
         registerDomainEvent(new ConversationSessionStartedEvent(id, accountId, startedAt));
+    }
+
+    public boolean isInCrisis() {
+        return status == SessionStatus.CRISIS_TRIGGERED;
     }
 
     private Optional<ConversationMessage> findLastUserMessage() {

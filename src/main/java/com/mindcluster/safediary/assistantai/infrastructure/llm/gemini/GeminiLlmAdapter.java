@@ -3,6 +3,7 @@ package com.mindcluster.safediary.assistantai.infrastructure.llm.gemini;
 import com.mindcluster.safediary.assistantai.application.internal.outboundservices.llm.*;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.MessageSender;
 import com.mindcluster.safediary.assistantai.infrastructure.llm.gemini.dto.*;
+import com.mindcluster.safediary.assistantai.infrastructure.llm.prompts.AssistantPromptFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -62,8 +63,8 @@ public class GeminiLlmAdapter implements AssistantLanguageModel {
                 .map(m -> new GeminiContent(m.getSender() == MessageSender.USER ? "user" : "model",
                         List.of(new GeminiPart(m.getContent()))))
                 .toList();
-        var structured = generate(GeminiPromptFactory.reflectionSystemInstruction(request.tone(), request.locale()),
-                contents, GeminiPromptFactory.reflectionResponseSchema(), 0.7, GeminiStructuredReply.class);
+        var structured = generate(AssistantPromptFactory.reflectionSystemInstruction(request.tone(), request.locale()),
+                contents, AssistantPromptFactory.reflectionResponseSchema(), 0.7, GeminiStructuredReply.class);
         if (structured.reply() == null || structured.reply().isBlank())
             throw new LlmUnavailableException("Gemini returned an empty reply");
         var distortions = structured.distortions() == null ? List.<LlmDistortion>of()
@@ -76,9 +77,9 @@ public class GeminiLlmAdapter implements AssistantLanguageModel {
     @Override
     public LlmSummary synthesizeWeeklySummary(LlmSummaryRequest request) {
         var contents = List.of(new GeminiContent("user",
-                List.of(new GeminiPart(GeminiPromptFactory.summaryUserPrompt(request)))));
-        var structured = generate(GeminiPromptFactory.summarySystemInstruction(request.locale()),
-                contents, GeminiPromptFactory.summaryResponseSchema(), 0.3, GeminiStructuredSummary.class);
+                List.of(new GeminiPart(AssistantPromptFactory.summaryUserPrompt(request)))));
+        var structured = generate(AssistantPromptFactory.summarySystemInstruction(request.locale()),
+                contents, AssistantPromptFactory.summaryResponseSchema(), 0.3, GeminiStructuredSummary.class);
         if (structured.narrative() == null || structured.narrative().isBlank())
             throw new LlmUnavailableException("Gemini returned an empty summary");
         return new LlmSummary(structured.narrative(),

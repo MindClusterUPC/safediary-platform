@@ -1,4 +1,4 @@
-package com.mindcluster.safediary.assistantai.infrastructure.llm.gemini;
+package com.mindcluster.safediary.assistantai.infrastructure.llm.prompts;
 
 import com.mindcluster.safediary.assistantai.application.internal.outboundservices.llm.LlmSummaryRequest;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.DistortionType;
@@ -11,11 +11,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Builds the prompts and JSON schemas sent to Gemini.
+ * Provider-neutral prompts (and JSON schemas) sent to the language model.
  */
-public final class GeminiPromptFactory {
+public final class AssistantPromptFactory {
 
-    private GeminiPromptFactory() {
+    private AssistantPromptFactory() {
     }
 
     public static String reflectionSystemInstruction(PersonalityTone tone, String locale) {

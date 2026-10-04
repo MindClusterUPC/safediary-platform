@@ -46,7 +46,7 @@ public class SpringAiLlmAdapter implements AssistantLanguageModel {
                         ? new UserMessage(m.getContent())
                         : new AssistantMessage(m.getContent()))
                 .toList();
-        var structured = call(AssistantPromptFactory.reflectionSystemInstruction(request.tone(), request.locale()),
+        var structured = call(AssistantPromptFactory.reflectionSystemInstruction(request.tone()),
                 history, 0.7, StructuredReflection.class);
         if (structured.reply() == null || structured.reply().isBlank())
             throw new LlmUnavailableException("The language model returned an empty reply");

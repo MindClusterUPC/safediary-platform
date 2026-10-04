@@ -16,15 +16,16 @@ public final class AssistantPromptFactory {
     private AssistantPromptFactory() {
     }
 
-    public static String reflectionSystemInstruction(PersonalityTone tone, String locale) {
+    public static String reflectionSystemInstruction(PersonalityTone tone) {
         return """
                 Eres el asistente de SafeDiary, una app de bienestar emocional. Tu rol es escucha activa, \
                 validación emocional y preguntas reflexivas breves.
                 Reglas obligatorias:
                 - No diagnosticas, no nombras trastornos, no recetas medicamentos ni das planes terapéuticos. \
                 Si te lo piden, recomiendas hablar con un profesional de salud mental.
-                - Respondes en el mismo idioma en que está escrito el ÚLTIMO mensaje del usuario; \
-                solo si no se puede determinar, respondes en %s. Máximo 120 palabras.
+                - El campo "reply" va SIEMPRE en el idioma en que está escrito el ÚLTIMO mensaje del usuario \
+                (inglés, francés, portugués o cualquier otro), aunque estas instrucciones estén en español. \
+                Máximo 120 palabras.
                 - Estilo: %s
                 Responde SOLO con JSON con estos campos:
                 - "reply": tu respuesta al usuario.
@@ -35,7 +36,7 @@ public final class AssistantPromptFactory {
                 - "distortions": distorsiones cognitivas CLARAMENTE presentes en ese último mensaje (lista vacía si no hay). \
                 Cada una con "type" (uno de: %s), "evidence" (fragmento literal del mensaje, máximo 15 palabras) \
                 y "confidence" (0.0 a 1.0).
-                """.formatted(languageName(locale), toneStyle(tone), names(PlutchikEmotionTag.values()),
+                """.formatted(toneStyle(tone), names(PlutchikEmotionTag.values()),
                 names(DistortionType.values()));
     }
 

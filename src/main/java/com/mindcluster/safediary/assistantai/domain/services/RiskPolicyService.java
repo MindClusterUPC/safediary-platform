@@ -16,7 +16,9 @@ public class RiskPolicyService {
 
     private static final List<String> CRITICAL_KEYWORDS = List.of(
             "suicid", "matarme", "quitarme la vida", "no quiero vivir", "quiero morir", "acabar con todo",
-            "hacerme dano", "autolesion", "cortarme", "kill myself", "end my life", "want to die", "self harm");
+            "hacerme dano", "autolesion", "cortarme", "no quiero seguir viviendo", "mejor muerto", "mejor muerta",
+            "kill myself", "end my life", "want to die", "self harm", "hurt myself", "do not want to live",
+            "dont want to live", "don't want to live", "no longer want to live", "better off dead");
 
     private static final List<String> MODERATE_KEYWORDS = List.of(
             "desesper", "sin salida", "no aguanto", "no puedo mas", "hopeless", "cant go on");

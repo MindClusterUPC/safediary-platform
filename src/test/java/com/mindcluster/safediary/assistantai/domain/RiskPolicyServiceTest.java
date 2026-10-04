@@ -46,6 +46,13 @@ class RiskPolicyServiceTest {
     }
 
     @Test
+    void englishAndSpanishVariantsAreCritical() {
+        assertThat(service.evaluate("I do not want to live anymore", null).level()).isEqualTo(RiskLevel.CRITICAL);
+        assertThat(service.evaluate("I don't want to live", null).level()).isEqualTo(RiskLevel.CRITICAL);
+        assertThat(service.evaluate("Ya no quiero seguir viviendo", null).level()).isEqualTo(RiskLevel.CRITICAL);
+    }
+
+    @Test
     void accentsAreNormalized() {
         assertThat(service.evaluate("Quiero hacerme daño", null).level()).isEqualTo(RiskLevel.CRITICAL);
     }

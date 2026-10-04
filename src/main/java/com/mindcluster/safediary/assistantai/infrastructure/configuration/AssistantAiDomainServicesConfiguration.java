@@ -2,6 +2,7 @@ package com.mindcluster.safediary.assistantai.infrastructure.configuration;
 
 import com.mindcluster.safediary.assistantai.domain.services.CognitiveDistortionService;
 import com.mindcluster.safediary.assistantai.domain.services.EmotionClassifierService;
+import com.mindcluster.safediary.assistantai.domain.services.RiskPolicyService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -10,6 +11,11 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class AssistantAiDomainServicesConfiguration {
+
+    @Bean
+    public RiskPolicyService riskPolicyService() {
+        return new RiskPolicyService();
+    }
 
     @Bean
     public EmotionClassifierService emotionClassifierService() {

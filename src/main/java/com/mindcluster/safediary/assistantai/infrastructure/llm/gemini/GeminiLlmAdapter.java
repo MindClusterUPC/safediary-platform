@@ -70,7 +70,7 @@ public class GeminiLlmAdapter implements AssistantLanguageModel {
                 : structured.distortions().stream()
                     .map(d -> new LlmDistortion(d.type(), d.evidence(), d.confidence()))
                     .toList();
-        return new LlmReply(structured.reply(), structured.emotion(), distortions);
+        return new LlmReply(structured.reply(), structured.emotion(), structured.riskScore(), distortions);
     }
 
     private <T> T generate(String systemInstruction, List<GeminiContent> contents,

@@ -5,5 +5,5 @@ import java.util.List;
 /**
  * Raw reflection produced by the language model, before domain normalization.
  */
-public record LlmReply(String reply, String emotion, List<LlmDistortion> distortions) {
+public record LlmReply(String reply, String emotion, Double riskScore, List<LlmDistortion> distortions) {
 }

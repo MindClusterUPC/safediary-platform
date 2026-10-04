@@ -149,7 +149,6 @@ public class ConversationCommandServiceImpl implements ConversationCommandServic
                     .filter(s -> s.getAccountId().equals(command.accountId()))
                     .filter(s -> s.getStatus() != SessionStatus.CLOSED);
         }
-        if (session.isEmpty()) session = sessionRepository.findActiveByAccountId(command.accountId());
         var resolved = session.orElseGet(() ->
                 sessionRepository.save(new ConversationSession(command.accountId(), PersonalityTone.EMPATHIC)));
         return handle(new SendTextMessageCommand(resolved.getId(), command.prompt(), command.locale()));

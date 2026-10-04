@@ -1,5 +1,6 @@
 package com.mindcluster.safediary.assistantai.infrastructure.configuration;
 
+import com.mindcluster.safediary.assistantai.domain.services.ClinicalSummarySynthesizerService;
 import com.mindcluster.safediary.assistantai.domain.services.CognitiveDistortionService;
 import com.mindcluster.safediary.assistantai.domain.services.EmotionClassifierService;
 import com.mindcluster.safediary.assistantai.domain.services.RiskPolicyService;
@@ -25,5 +26,10 @@ public class AssistantAiDomainServicesConfiguration {
     @Bean
     public CognitiveDistortionService cognitiveDistortionService() {
         return new CognitiveDistortionService();
+    }
+
+    @Bean
+    public ClinicalSummarySynthesizerService clinicalSummarySynthesizerService() {
+        return new ClinicalSummarySynthesizerService();
     }
 }

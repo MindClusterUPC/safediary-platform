@@ -3,6 +3,8 @@ package com.mindcluster.safediary.assistantai.infrastructure.llm.gemini;
 import com.mindcluster.safediary.assistantai.application.internal.outboundservices.llm.*;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.MessageSender;
 import com.mindcluster.safediary.assistantai.infrastructure.llm.gemini.dto.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
@@ -10,6 +12,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -27,12 +30,16 @@ import java.util.Map;
 @ConditionalOnProperty(name = "assistantai.llm.provider", havingValue = "gemini")
 public class GeminiLlmAdapter implements AssistantLanguageModel {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(GeminiLlmAdapter.class);
+
     private final RestClient restClient;
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
     private final String model;
+    private final String fallbackModel;
 
     public GeminiLlmAdapter(@Value("${assistantai.llm.gemini.api-key}") String apiKey,
                             @Value("${assistantai.llm.gemini.model}") String model,
+                            @Value("${assistantai.llm.gemini.fallback-model}") String fallbackModel,
                             @Value("${assistantai.llm.gemini.base-url}") String baseUrl,
                             @Value("${assistantai.llm.gemini.timeout-seconds}") long timeoutSeconds) {
         if (apiKey == null || apiKey.isBlank())
@@ -41,6 +48,7 @@ public class GeminiLlmAdapter implements AssistantLanguageModel {
         requestFactory.setConnectTimeout(Duration.ofSeconds(10));
         requestFactory.setReadTimeout(Duration.ofSeconds(timeoutSeconds));
         this.model = model;
+        this.fallbackModel = fallbackModel;
         this.restClient = RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(requestFactory)
@@ -71,17 +79,27 @@ public class GeminiLlmAdapter implements AssistantLanguageModel {
                 new GeminiContent(null, List.of(new GeminiPart(systemInstruction))),
                 contents,
                 new GeminiGenerationConfig(temperature, "application/json", schema));
-        try {
-            var response = restClient.post()
-                    .uri("/v1beta/models/{model}:generateContent", model)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .body(GeminiGenerateContentResponse.class);
-            return jsonMapper.readValue(extractText(response), type);
-        } catch (RestClientException | JacksonException ex) {
-            throw new LlmUnavailableException("Gemini request failed: " + ex.getMessage(), ex);
+        var models = model.equals(fallbackModel) ? List.of(model) : List.of(model, fallbackModel);
+        for (int i = 0; i < models.size(); i++) {
+            try {
+                var response = restClient.post()
+                        .uri("/v1beta/models/{model}:generateContent", models.get(i))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(body)
+                        .retrieve()
+                        .body(GeminiGenerateContentResponse.class);
+                return jsonMapper.readValue(extractText(response), type);
+            } catch (RestClientResponseException ex) {
+                boolean overloaded = ex.getStatusCode().value() == 503 || ex.getStatusCode().value() == 429;
+                if (!overloaded || i == models.size() - 1)
+                    throw new LlmUnavailableException("Gemini request failed: " + ex.getStatusCode(), ex);
+                LOGGER.warn("Gemini model {} unavailable ({}), retrying with {}",
+                        models.get(i), ex.getStatusCode().value(), models.get(i + 1));
+            } catch (RestClientException | JacksonException ex) {
+                throw new LlmUnavailableException("Gemini request failed: " + ex.getMessage(), ex);
+            }
         }
+        throw new LlmUnavailableException("Gemini request failed");
     }
 
     private String extractText(GeminiGenerateContentResponse response) {

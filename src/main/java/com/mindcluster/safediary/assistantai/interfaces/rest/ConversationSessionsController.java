@@ -9,6 +9,7 @@ import com.mindcluster.safediary.assistantai.domain.model.queries.GetSessionHist
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.ConversationSessionResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.SendTextMessageResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.StartConversationResource;
+import com.mindcluster.safediary.assistantai.interfaces.rest.resources.UpdateAiToneResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.transform.*;
 import com.mindcluster.safediary.shared.application.result.ApplicationError;
 import com.mindcluster.safediary.shared.interfaces.rest.transform.ErrorResponseAssembler;
@@ -84,6 +85,15 @@ public class ConversationSessionsController {
                 .map(ConversationSessionResourceFromEntityAssembler::toResource)
                 .toList();
         return ResponseEntity.ok(sessions);
+    }
+
+    @PutMapping("/{sessionId}/tone")
+    @Operation(summary = "Change the personality tone of the AI companion")
+    public ResponseEntity<?> changeTone(@PathVariable Long sessionId, @Valid @RequestBody UpdateAiToneResource resource) {
+        var result = conversationCommandService.handle(
+                ChangePersonalityToneCommandFromResourceAssembler.toCommandFromResource(sessionId, resource));
+        return ResponseEntityAssembler.toResponseEntityFromResult(result,
+                ConversationSessionResourceFromEntityAssembler::toResource, HttpStatus.OK);
     }
 
     @PatchMapping("/{sessionId}/close")

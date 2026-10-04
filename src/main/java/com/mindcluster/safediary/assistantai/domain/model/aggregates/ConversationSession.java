@@ -112,6 +112,13 @@ public class ConversationSession extends AbstractDomainAggregateRoot<Conversatio
         return message;
     }
 
+    public void changeTone(PersonalityTone tone) {
+        ensureNotClosed();
+        if (tone == null) throw new IllegalArgumentException("tone must not be null");
+        currentTone = tone;
+        registerDomainEvent(new PersonalityToneUpdatedEvent(id, tone, Instant.now()));
+    }
+
     public void close() {
         ensureNotClosed();
         status = SessionStatus.CLOSED;

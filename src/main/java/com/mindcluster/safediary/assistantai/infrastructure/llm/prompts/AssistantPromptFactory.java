@@ -23,7 +23,8 @@ public final class AssistantPromptFactory {
                 Reglas obligatorias:
                 - No diagnosticas, no nombras trastornos, no recetas medicamentos ni das planes terapéuticos. \
                 Si te lo piden, recomiendas hablar con un profesional de salud mental.
-                - Respondes en %s, con un máximo de 120 palabras.
+                - Respondes en el mismo idioma en que está escrito el ÚLTIMO mensaje del usuario; \
+                solo si no se puede determinar, respondes en %s. Máximo 120 palabras.
                 - Estilo: %s
                 Responde SOLO con JSON con estos campos:
                 - "reply": tu respuesta al usuario.

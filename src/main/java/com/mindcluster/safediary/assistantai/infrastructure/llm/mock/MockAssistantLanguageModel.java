@@ -16,6 +16,6 @@ public class MockAssistantLanguageModel implements AssistantLanguageModel {
     @Override
     public LlmReply generateReflection(LlmReflectionRequest request) {
         return new LlmReply("Gracias por compartir cómo te sientes. ¿Qué crees que hay detrás de esa emoción?",
-                "PENSIVENESS", List.of());
+                "PENSIVENESS", 0.0, List.of());
     }
 }

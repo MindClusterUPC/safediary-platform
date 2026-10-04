@@ -14,6 +14,8 @@ public final class ReflectionResponseResourceFromResultAssembler {
     public static ReflectionResponseResource toResource(ReflectionResult result) {
         return new ReflectionResponseResource(result.session().getId(), result.session().getStatus().name(),
                 ConversationMessageResourceFromEntityAssembler.toResource(result.userMessage()),
-                ConversationMessageResourceFromEntityAssembler.toResource(result.assistantMessage()));
+                ConversationMessageResourceFromEntityAssembler.toResource(result.assistantMessage()),
+                result.riskLevel().name(),
+                result.crisisResources().stream().map(CrisisHotlineResourceFromValueObjectAssembler::toResource).toList());
     }
 }

@@ -10,5 +10,5 @@ import java.util.List;
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record GeminiStructuredReply(String reply, String emotion, List<GeminiDistortion> distortions) {
+public record GeminiStructuredReply(String reply, String emotion, Double riskScore, List<GeminiDistortion> distortions) {
 }

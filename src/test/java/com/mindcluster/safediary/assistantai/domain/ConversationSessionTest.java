@@ -3,6 +3,7 @@ package com.mindcluster.safediary.assistantai.domain;
 import com.mindcluster.safediary.assistantai.domain.model.aggregates.ConversationSession;
 import com.mindcluster.safediary.assistantai.domain.model.entities.CognitiveDistortion;
 import com.mindcluster.safediary.assistantai.domain.model.events.CognitiveDistortionDetectedEvent;
+import com.mindcluster.safediary.assistantai.domain.model.events.CrisisProtocolActivatedEvent;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.DistortionType;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PersonalityTone;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PlutchikEmotionTag;
@@ -45,6 +46,18 @@ class ConversationSessionTest {
         session.close();
 
         assertThatThrownBy(() -> session.receiveUserMessage("hola")).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void sessionInCrisisKeepsAcceptingMessages() {
+        var session = new ConversationSession(1L, null);
+        session.flagForCrisis();
+
+        session.receiveUserMessage("sigo aquí");
+
+        assertThat(session.getStatus()).isEqualTo(SessionStatus.CRISIS_TRIGGERED);
+        assertThat(session.getMessages()).hasSize(1);
+        assertThat(session.domainEvents()).hasAtLeastOneElementOfType(CrisisProtocolActivatedEvent.class);
     }
 
     @Test

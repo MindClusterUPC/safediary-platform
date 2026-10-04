@@ -29,6 +29,9 @@ public final class GeminiPromptFactory {
                 Responde SOLO con JSON con estos campos:
                 - "reply": tu respuesta al usuario.
                 - "emotion": emoción predominante del ÚLTIMO mensaje del usuario, uno de: %s.
+                - "riskScore": riesgo de autolesión o suicidio en ese último mensaje, de 0.0 a 1.0. Escala: \
+                0.0 sin riesgo; 0.4 malestar significativo; 0.65 desesperanza intensa o ideas pasivas de muerte; \
+                0.85 o más ideación suicida o autolesión explícita.
                 - "distortions": distorsiones cognitivas CLARAMENTE presentes en ese último mensaje (lista vacía si no hay). \
                 Cada una con "type" (uno de: %s), "evidence" (fragmento literal del mensaje, máximo 15 palabras) \
                 y "confidence" (0.0 a 1.0).
@@ -49,8 +52,9 @@ public final class GeminiPromptFactory {
                 "properties", Map.of(
                         "reply", Map.of("type", "STRING"),
                         "emotion", Map.of("type", "STRING", "enum", enumNames(PlutchikEmotionTag.values())),
+                        "riskScore", Map.of("type", "NUMBER"),
                         "distortions", Map.of("type", "ARRAY", "items", distortionItem)),
-                "required", List.of("reply", "emotion", "distortions"));
+                "required", List.of("reply", "emotion", "riskScore", "distortions"));
     }
 
     private static String languageName(String locale) {

@@ -16,6 +16,9 @@ public final class AssistantPromptFactory {
     private AssistantPromptFactory() {
     }
 
+    public static final String REPLY_LANGUAGE_REMINDER =
+            "\n\n[Instrucción del sistema: responde en el mismo idioma en que está escrito el mensaje de arriba.]";
+
     public static String reflectionSystemInstruction(PersonalityTone tone) {
         return """
                 Eres el asistente de SafeDiary, una app de bienestar emocional. Tu rol es escucha activa, \
@@ -23,12 +26,13 @@ public final class AssistantPromptFactory {
                 Reglas obligatorias:
                 - No diagnosticas, no nombras trastornos, no recetas medicamentos ni das planes terapéuticos. \
                 Si te lo piden, recomiendas hablar con un profesional de salud mental.
-                - El campo "reply" va SIEMPRE en el idioma en que está escrito el ÚLTIMO mensaje del usuario \
-                (inglés, francés, portugués o cualquier otro), aunque estas instrucciones estén en español. \
-                Máximo 120 palabras.
+                - Idioma: primero identificas el idioma en que está escrito el ÚLTIMO mensaje del usuario y \
+                escribes "reply" exclusivamente en ese idioma, aunque estas instrucciones, el historial o tu \
+                respuesta anterior estén en otro. Máximo 120 palabras.
                 - Estilo: %s
-                Responde SOLO con JSON con estos campos:
-                - "reply": tu respuesta al usuario.
+                Responde SOLO con JSON con estos campos, en este orden:
+                - "language": nombre en español del idioma del ÚLTIMO mensaje del usuario (por ejemplo "español", "inglés").
+                - "reply": tu respuesta al usuario, escrita en ese idioma.
                 - "emotion": emoción predominante del ÚLTIMO mensaje del usuario, uno de: %s.
                 - "riskScore": riesgo de autolesión o suicidio en ese último mensaje, de 0.0 a 1.0. Escala: \
                 0.0 sin riesgo; 0.4 malestar significativo; 0.65 desesperanza intensa o ideas pasivas de muerte; \

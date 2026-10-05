@@ -41,10 +41,17 @@ public class SpringAiLlmAdapter implements AssistantLanguageModel {
 
     @Override
     public LlmReply generateReflection(LlmReflectionRequest request) {
-        List<Message> history = request.history().stream()
-                .<Message>map(m -> m.getSender() == MessageSender.USER
-                        ? new UserMessage(m.getContent())
-                        : new AssistantMessage(m.getContent()))
+        var messages = request.history();
+        var lastIndex = messages.size() - 1;
+        List<Message> history = java.util.stream.IntStream.range(0, messages.size())
+                .<Message>mapToObj(i -> {
+                    var m = messages.get(i);
+                    if (m.getSender() != MessageSender.USER) return new AssistantMessage(m.getContent());
+                    // Smaller fallback models drift to English; restating the rule next to the message keeps them on track.
+                    return new UserMessage(i == lastIndex
+                            ? m.getContent() + AssistantPromptFactory.REPLY_LANGUAGE_REMINDER
+                            : m.getContent());
+                })
                 .toList();
         var structured = call(AssistantPromptFactory.reflectionSystemInstruction(request.tone()),
                 history, 0.7, StructuredReflection.class);
@@ -100,7 +107,7 @@ public class SpringAiLlmAdapter implements AssistantLanguageModel {
     /**
      * Typed reflection produced by the model (Spring AI derives the JSON schema from this record).
      */
-    public record StructuredReflection(String reply, String emotion, Double riskScore,
+    public record StructuredReflection(String language, String reply, String emotion, Double riskScore,
                                        List<StructuredDistortion> distortions) {
     }
 

@@ -3,6 +3,7 @@ package com.mindcluster.safediary.assistantai.interfaces.rest;
 import com.mindcluster.safediary.assistantai.application.commandservices.ConversationCommandService;
 import com.mindcluster.safediary.assistantai.application.queryservices.ConversationQueryService;
 import com.mindcluster.safediary.assistantai.application.queryservices.CrisisQueryService;
+import com.mindcluster.safediary.assistantai.domain.model.commands.DeleteConversationCommand;
 import com.mindcluster.safediary.assistantai.domain.model.commands.RenameConversationCommand;
 import com.mindcluster.safediary.assistantai.domain.model.commands.SendChatPromptCommand;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PersonalityTone;
@@ -14,6 +15,7 @@ import com.mindcluster.safediary.assistantai.interfaces.rest.resources.RenameCon
 import com.mindcluster.safediary.assistantai.interfaces.rest.transform.AssistantChatResponseResourceFromResultAssembler;
 import com.mindcluster.safediary.assistantai.interfaces.rest.transform.AssistantConversationResourceFromEntityAssembler;
 import com.mindcluster.safediary.shared.application.result.ApplicationError;
+import com.mindcluster.safediary.shared.application.result.Result;
 import com.mindcluster.safediary.shared.interfaces.rest.transform.ErrorResponseAssembler;
 import com.mindcluster.safediary.shared.interfaces.rest.transform.ResponseEntityAssembler;
 import io.swagger.v3.oas.annotations.Operation;
@@ -95,5 +97,17 @@ public class AssistantChatController {
         var result = conversationCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(result,
                 AssistantConversationResourceFromEntityAssembler::toSummaryResource, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/conversations/{conversationId}")
+    @Operation(summary = "Delete a conversation and all its messages and risk assessments")
+    public ResponseEntity<?> deleteConversation(@PathVariable Long conversationId) {
+        var command = new DeleteConversationCommand(demoAccountId, conversationId);
+        var result = conversationCommandService.handle(command);
+        return switch (result) {
+            case Result.Success<Void, ApplicationError> ignored -> ResponseEntity.noContent().build();
+            case Result.Failure<Void, ApplicationError> failure ->
+                    ErrorResponseAssembler.toErrorResponseFromApplicationError(failure.error());
+        };
     }
 }

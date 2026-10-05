@@ -23,6 +23,7 @@ import com.mindcluster.safediary.shared.application.result.ApplicationError;
 import com.mindcluster.safediary.shared.application.result.Result;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -177,6 +178,18 @@ public class ConversationCommandServiceImpl implements ConversationCommandServic
         }
         var saved = sessionRepository.save(session);
         return Result.success(saved);
+    }
+
+    @Override
+    @Transactional
+    public Result<Void, ApplicationError> handle(DeleteConversationCommand command) {
+        var found = sessionRepository.findById(command.conversationId());
+        if (found.isEmpty() || (command.accountId() != null && !found.get().getAccountId().equals(command.accountId()))) {
+            return Result.failure(ApplicationError.notFound("Conversation", String.valueOf(command.conversationId())));
+        }
+        riskAssessmentRepository.deleteAllBySessionId(command.conversationId());
+        sessionRepository.delete(found.get());
+        return Result.success(null);
     }
 
     @Override

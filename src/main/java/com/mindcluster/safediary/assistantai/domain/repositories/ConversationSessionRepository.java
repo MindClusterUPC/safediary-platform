@@ -34,4 +34,6 @@ public interface ConversationSessionRepository {
     List<Long> findAccountIdsWithSessionsOverlapping(Instant from, Instant to);
 
     ConversationSession save(ConversationSession session);
+
+    void delete(ConversationSession session);
 }

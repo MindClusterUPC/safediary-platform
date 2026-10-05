@@ -100,4 +100,12 @@ public class ConversationSessionRepositoryImpl implements ConversationSessionRep
         }
         return result;
     }
+
+    @Override
+    @Transactional
+    public void delete(ConversationSession session) {
+        if (session != null && session.getId() != null) {
+            persistenceRepository.findById(session.getId()).ifPresent(persistenceRepository::delete);
+        }
+    }
 }

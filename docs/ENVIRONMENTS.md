@@ -30,7 +30,8 @@ Todo sale de variables de entorno. El perfil `prod` **no tiene valores por defec
 |---|---|---|---|
 | `SPRING_PROFILES_ACTIVE` | sí | `render.yaml` | `prod` |
 | `PORT` | sí | Render la pone sola | — |
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | sí | `render.yaml`, desde la base `safediary-db` | — |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | sí | Render te las pide (datos de filess.io) | — |
+| `DB_POOL_SIZE` | no | `render.yaml` | `3` (conexiones máximas a la base) |
 | `GEMINI_API_KEY` | una de las dos keys | Render te la pide (secreta) | — |
 | `LLM_BACKUP_API_KEY` | una de las dos keys | Render te la pide (secreta) | key de Groq |
 | `GEMINI_MODEL` | no | `render.yaml` | `gemini-3.5-flash-lite` |

@@ -31,8 +31,8 @@ services:
         fromDatabase:
           name: safediary-db
           property: password
-      - key: JPA_SHOW_SQL
-        value: "false"
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
       # Gemini (primary). gemini-3.5-flash-lite answers in about 1 s; the bigger model was often overloaded.
       - key: GEMINI_API_KEY
         sync: false

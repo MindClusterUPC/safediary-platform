@@ -84,6 +84,28 @@ public class ConversationSession extends AbstractDomainAggregateRoot<Conversatio
         this.title = trimmed;
     }
 
+    public void truncateFrom(Long messageId) {
+        ensureNotClosed();
+        if (messageId == null) {
+            throw new IllegalArgumentException("messageId must not be null");
+        }
+        int targetIndex = -1;
+        for (int i = 0; i < messages.size(); i++) {
+            if (messageId.equals(messages.get(i).getId())) {
+                targetIndex = i;
+                break;
+            }
+        }
+        if (targetIndex == -1) {
+            throw new IllegalArgumentException("message not found: " + messageId);
+        }
+        var targetMessage = messages.get(targetIndex);
+        if (targetMessage.getSender() != MessageSender.USER) {
+            throw new IllegalArgumentException("can only truncate from a user message");
+        }
+        messages.subList(targetIndex, messages.size()).clear();
+    }
+
     public List<ConversationMessage> getMessages() {
         return List.copyOf(messages);
     }

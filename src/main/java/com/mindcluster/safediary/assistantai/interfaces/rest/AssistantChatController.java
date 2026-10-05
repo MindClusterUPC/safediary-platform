@@ -4,6 +4,7 @@ import com.mindcluster.safediary.assistantai.application.commandservices.Convers
 import com.mindcluster.safediary.assistantai.application.queryservices.ConversationQueryService;
 import com.mindcluster.safediary.assistantai.application.queryservices.CrisisQueryService;
 import com.mindcluster.safediary.assistantai.domain.model.commands.DeleteConversationCommand;
+import com.mindcluster.safediary.assistantai.domain.model.commands.EditUserMessageCommand;
 import com.mindcluster.safediary.assistantai.domain.model.commands.RenameConversationCommand;
 import com.mindcluster.safediary.assistantai.domain.model.commands.SendChatPromptCommand;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PersonalityTone;
@@ -11,6 +12,7 @@ import com.mindcluster.safediary.assistantai.domain.model.queries.GetConversatio
 import com.mindcluster.safediary.assistantai.domain.model.queries.GetSessionHistoryByAccountQuery;
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.AssistantChatRequestResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.AssistantConversationSummaryResource;
+import com.mindcluster.safediary.assistantai.interfaces.rest.resources.EditChatMessageResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.RenameConversationResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.transform.AssistantChatResponseResourceFromResultAssembler;
 import com.mindcluster.safediary.assistantai.interfaces.rest.transform.AssistantConversationResourceFromEntityAssembler;
@@ -109,5 +111,18 @@ public class AssistantChatController {
             case Result.Failure<Void, ApplicationError> failure ->
                     ErrorResponseAssembler.toErrorResponseFromApplicationError(failure.error());
         };
+    }
+
+    @PutMapping("/conversations/{conversationId}/messages/{messageId}")
+    @Operation(summary = "Edit a user message and regenerate subsequent dialogue")
+    public ResponseEntity<?> editMessage(@PathVariable Long conversationId,
+                                         @PathVariable Long messageId,
+                                         @Valid @RequestBody EditChatMessageResource resource) {
+        var command = new EditUserMessageCommand(demoAccountId, conversationId, messageId,
+                resource.prompt(), resource.locale(),
+                PersonalityTone.fromName(resource.personality()).orElse(null));
+        var result = conversationCommandService.handle(command);
+        return ResponseEntityAssembler.toResponseEntityFromResult(result,
+                AssistantChatResponseResourceFromResultAssembler::toResource, HttpStatus.OK);
     }
 }

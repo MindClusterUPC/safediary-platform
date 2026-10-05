@@ -22,5 +22,7 @@ public interface ConversationCommandService {
 
     Result<Void, ApplicationError> handle(DeleteConversationCommand command);
 
+    Result<ReflectionResult, ApplicationError> handle(EditUserMessageCommand command);
+
     Result<ConversationSession, ApplicationError> handle(CloseConversationCommand command);
 }

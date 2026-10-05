@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Repository adapter that bridges the conversation session repository port with Spring Data JPA.
@@ -82,6 +84,13 @@ public class ConversationSessionRepositoryImpl implements ConversationSessionRep
         entity.setEndedAt(session.getEndedAt());
         entity.setStatus(session.getStatus());
         entity.setCurrentTone(session.getCurrentTone());
+
+        var activeMessageIds = session.getMessages().stream()
+                .map(m -> m.getId())
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        entity.getMessages().removeIf(m -> m.getId() != null && !activeMessageIds.contains(m.getId()));
+
         var existingById = new HashMap<Long, ConversationMessagePersistenceEntity>();
         entity.getMessages().forEach(m -> existingById.put(m.getId(), m));
         for (var message : session.getMessages()) {

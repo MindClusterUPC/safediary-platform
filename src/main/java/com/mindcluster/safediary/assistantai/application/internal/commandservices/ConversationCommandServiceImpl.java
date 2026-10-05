@@ -193,6 +193,27 @@ public class ConversationCommandServiceImpl implements ConversationCommandServic
     }
 
     @Override
+    public Result<ReflectionResult, ApplicationError> handle(EditUserMessageCommand command) {
+        var found = sessionRepository.findById(command.conversationId());
+        if (found.isEmpty() || (command.accountId() != null && !found.get().getAccountId().equals(command.accountId()))) {
+            return Result.failure(ApplicationError.notFound("Conversation", String.valueOf(command.conversationId())));
+        }
+        var session = found.get();
+        if (command.tone() != null && command.tone() != session.getCurrentTone()) {
+            session.changeTone(command.tone());
+        }
+        try {
+            session.truncateFrom(command.messageId());
+        } catch (IllegalArgumentException ex) {
+            return Result.failure(ApplicationError.validationError("messageId", ex.getMessage()));
+        } catch (IllegalStateException ex) {
+            return Result.failure(ApplicationError.businessRuleViolation("session-not-closed", ex.getMessage()));
+        }
+        sessionRepository.save(session);
+        return handle(new SendTextMessageCommand(session.getId(), command.prompt(), command.locale()));
+    }
+
+    @Override
     public Result<ConversationSession, ApplicationError> handle(CloseConversationCommand command) {
         return applyToSession(command.sessionId(), ConversationSession::close);
     }

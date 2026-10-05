@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local secrets (API keys). Spring Boot loads ./config/application.properties automatically ###
+/config/

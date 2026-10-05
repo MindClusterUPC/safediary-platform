@@ -28,7 +28,7 @@ public final class AssistantConversationResourceFromEntityAssembler {
 
     public static AssistantConversationResource toResource(ConversationSession session, List<CrisisHotline> hotlines) {
         var messages = session.getMessages().stream()
-                .map(m -> new AssistantChatMessageResource(m.getSender() == MessageSender.USER ? "user" : "assistant",
+                .map(m -> new AssistantChatMessageResource(m.getId(), m.getSender() == MessageSender.USER ? "user" : "assistant",
                         m.getContent(), m.getSentAt()))
                 .toList();
         var crisisResources = session.isInCrisis()

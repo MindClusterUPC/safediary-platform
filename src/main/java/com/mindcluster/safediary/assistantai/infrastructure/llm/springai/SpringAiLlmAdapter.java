@@ -13,6 +13,7 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -41,16 +42,18 @@ public class SpringAiLlmAdapter implements AssistantLanguageModel {
 
     private final List<Route> routes = new ArrayList<>();
 
-    public SpringAiLlmAdapter(ChatModel chatModel,
+    public SpringAiLlmAdapter(ObjectProvider<ChatModel> chatModel,
                               @Value("${assistantai.llm.spring-ai.fallback-model:}") String fallbackModel,
                               @Value("${assistantai.llm.backup.api-key:}") String backupApiKey,
                               @Value("${assistantai.llm.backup.base-url:}") String backupBaseUrl,
                               @Value("${assistantai.llm.backup.model:}") String backupModel,
                               @Value("${assistantai.llm.backup.timeout-seconds:30}") long backupTimeoutSeconds) {
-        var primary = ChatClient.create(chatModel);
-        routes.add(new Route("primary", primary, null));
-        if (!fallbackModel.isBlank())
-            routes.add(new Route(fallbackModel, primary, fallbackModel));
+        chatModel.ifAvailable(model -> {
+            var primary = ChatClient.create(model);
+            routes.add(new Route("primary", primary, null));
+            if (!fallbackModel.isBlank())
+                routes.add(new Route(fallbackModel, primary, fallbackModel));
+        });
         if (!backupApiKey.isBlank()) {
             var backup = OpenAiChatModel.builder()
                     .options(OpenAiChatOptions.builder()
@@ -63,6 +66,9 @@ public class SpringAiLlmAdapter implements AssistantLanguageModel {
                     .build();
             routes.add(new Route("backup " + backupModel, ChatClient.create(backup), null));
         }
+        if (routes.isEmpty())
+            throw new IllegalStateException(
+                    "No language model configured: set spring.ai.google.genai.api-key or assistantai.llm.backup.api-key");
     }
 
     @Override

@@ -11,10 +11,14 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.openai.OpenAiChatModel;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -23,6 +27,11 @@ import java.util.List;
  * The provider is chosen with {@code spring.ai.model.chat} (google-genai, openai, ...); this adapter only
  * depends on Spring AI's {@link ChatModel} abstraction and maps its typed output to the AssistantAI model.
  * </p>
+ * <p>
+ * Models are tried in order: the primary model, {@code assistantai.llm.spring-ai.fallback-model} on the same
+ * provider, and finally the OpenAI-compatible backup provider (Groq, OpenRouter...) when
+ * {@code assistantai.llm.backup.api-key} is set.
+ * </p>
  */
 @Component
 @ConditionalOnProperty(name = "assistantai.llm.provider", havingValue = "spring-ai")
@@ -30,13 +39,30 @@ public class SpringAiLlmAdapter implements AssistantLanguageModel {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SpringAiLlmAdapter.class);
 
-    private final ChatClient chatClient;
-    private final String fallbackModel;
+    private final List<Route> routes = new ArrayList<>();
 
     public SpringAiLlmAdapter(ChatModel chatModel,
-                              @Value("${assistantai.llm.spring-ai.fallback-model:}") String fallbackModel) {
-        this.chatClient = ChatClient.create(chatModel);
-        this.fallbackModel = fallbackModel;
+                              @Value("${assistantai.llm.spring-ai.fallback-model:}") String fallbackModel,
+                              @Value("${assistantai.llm.backup.api-key:}") String backupApiKey,
+                              @Value("${assistantai.llm.backup.base-url:}") String backupBaseUrl,
+                              @Value("${assistantai.llm.backup.model:}") String backupModel,
+                              @Value("${assistantai.llm.backup.timeout-seconds:30}") long backupTimeoutSeconds) {
+        var primary = ChatClient.create(chatModel);
+        routes.add(new Route("primary", primary, null));
+        if (!fallbackModel.isBlank())
+            routes.add(new Route(fallbackModel, primary, fallbackModel));
+        if (!backupApiKey.isBlank()) {
+            var backup = OpenAiChatModel.builder()
+                    .options(OpenAiChatOptions.builder()
+                            .baseUrl(backupBaseUrl)
+                            .apiKey(backupApiKey)
+                            .model(backupModel)
+                            .timeout(Duration.ofSeconds(backupTimeoutSeconds))
+                            .maxRetries(0)
+                            .build())
+                    .build();
+            routes.add(new Route("backup " + backupModel, ChatClient.create(backup), null));
+        }
     }
 
     @Override
@@ -76,25 +102,23 @@ public class SpringAiLlmAdapter implements AssistantLanguageModel {
     }
 
     private <T> T call(String systemInstruction, List<Message> messages, double temperature, Class<T> type) {
-        try {
-            return request(systemInstruction, messages, temperature, null, type);
-        } catch (RuntimeException ex) {
-            if (fallbackModel == null || fallbackModel.isBlank())
-                throw new LlmUnavailableException("Language model request failed: " + ex.getMessage(), ex);
-            LOGGER.warn("Primary model failed ({}), retrying with {}", ex.getClass().getSimpleName(), fallbackModel);
+        RuntimeException lastFailure = null;
+        for (var route : routes) {
             try {
-                return request(systemInstruction, messages, temperature, fallbackModel, type);
-            } catch (RuntimeException retryEx) {
-                throw new LlmUnavailableException("Language model request failed: " + retryEx.getMessage(), retryEx);
+                return request(route, systemInstruction, messages, temperature, type);
+            } catch (RuntimeException ex) {
+                LOGGER.warn("Language model '{}' failed ({}), trying the next one", route.name(), ex.getClass().getSimpleName());
+                lastFailure = ex;
             }
         }
+        throw new LlmUnavailableException("Language model request failed: " + lastFailure.getMessage(), lastFailure);
     }
 
-    private <T> T request(String systemInstruction, List<Message> messages, double temperature,
-                          String model, Class<T> type) {
+    private <T> T request(Route route, String systemInstruction, List<Message> messages, double temperature,
+                          Class<T> type) {
         var options = ChatOptions.builder().temperature(temperature);
-        if (model != null) options.model(model);
-        var result = chatClient.prompt()
+        if (route.model() != null) options.model(route.model());
+        var result = route.client().prompt()
                 .system(systemInstruction)
                 .messages(messages)
                 .options(options)
@@ -102,6 +126,9 @@ public class SpringAiLlmAdapter implements AssistantLanguageModel {
                 .entity(type);
         if (result == null) throw new LlmUnavailableException("The language model returned no content");
         return result;
+    }
+
+    private record Route(String name, ChatClient client, String model) {
     }
 
     /**

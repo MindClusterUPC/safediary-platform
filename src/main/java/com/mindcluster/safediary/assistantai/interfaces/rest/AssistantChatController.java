@@ -4,6 +4,7 @@ import com.mindcluster.safediary.assistantai.application.commandservices.Convers
 import com.mindcluster.safediary.assistantai.application.queryservices.ConversationQueryService;
 import com.mindcluster.safediary.assistantai.application.queryservices.CrisisQueryService;
 import com.mindcluster.safediary.assistantai.domain.model.commands.SendChatPromptCommand;
+import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PersonalityTone;
 import com.mindcluster.safediary.assistantai.domain.model.queries.GetConversationSessionByIdQuery;
 import com.mindcluster.safediary.assistantai.domain.model.queries.GetSessionHistoryByAccountQuery;
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.AssistantChatRequestResource;
@@ -55,7 +56,7 @@ public class AssistantChatController {
     @Operation(summary = "Send a prompt; without conversationId a new conversation is started")
     public ResponseEntity<?> chat(@Valid @RequestBody AssistantChatRequestResource resource) {
         var command = new SendChatPromptCommand(demoAccountId, resource.conversationId(), resource.prompt(),
-                resource.locale());
+                resource.locale(), PersonalityTone.fromName(resource.personality()).orElse(null));
         var result = conversationCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(result,
                 AssistantChatResponseResourceFromResultAssembler::toResource, HttpStatus.OK);

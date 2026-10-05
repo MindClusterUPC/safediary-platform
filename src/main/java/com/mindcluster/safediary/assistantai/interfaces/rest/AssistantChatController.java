@@ -3,12 +3,14 @@ package com.mindcluster.safediary.assistantai.interfaces.rest;
 import com.mindcluster.safediary.assistantai.application.commandservices.ConversationCommandService;
 import com.mindcluster.safediary.assistantai.application.queryservices.ConversationQueryService;
 import com.mindcluster.safediary.assistantai.application.queryservices.CrisisQueryService;
+import com.mindcluster.safediary.assistantai.domain.model.commands.RenameConversationCommand;
 import com.mindcluster.safediary.assistantai.domain.model.commands.SendChatPromptCommand;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PersonalityTone;
 import com.mindcluster.safediary.assistantai.domain.model.queries.GetConversationSessionByIdQuery;
 import com.mindcluster.safediary.assistantai.domain.model.queries.GetSessionHistoryByAccountQuery;
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.AssistantChatRequestResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.AssistantConversationSummaryResource;
+import com.mindcluster.safediary.assistantai.interfaces.rest.resources.RenameConversationResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.transform.AssistantChatResponseResourceFromResultAssembler;
 import com.mindcluster.safediary.assistantai.interfaces.rest.transform.AssistantConversationResourceFromEntityAssembler;
 import com.mindcluster.safediary.shared.application.result.ApplicationError;
@@ -82,5 +84,16 @@ public class AssistantChatController {
                         .toResource(session, crisisQueryService.getCrisisHotlines())))
                 .orElseGet(() -> ErrorResponseAssembler.toErrorResponseFromApplicationError(
                         ApplicationError.notFound("Conversation", String.valueOf(conversationId))));
+    }
+
+    @PatchMapping("/conversations/{conversationId}")
+    @Operation(summary = "Rename a conversation session")
+    public ResponseEntity<?> renameConversation(@PathVariable Long conversationId,
+                                                @RequestBody(required = false) RenameConversationResource resource) {
+        var title = resource != null ? resource.title() : null;
+        var command = new RenameConversationCommand(demoAccountId, conversationId, title);
+        var result = conversationCommandService.handle(command);
+        return ResponseEntityAssembler.toResponseEntityFromResult(result,
+                AssistantConversationResourceFromEntityAssembler::toSummaryResource, HttpStatus.OK);
     }
 }

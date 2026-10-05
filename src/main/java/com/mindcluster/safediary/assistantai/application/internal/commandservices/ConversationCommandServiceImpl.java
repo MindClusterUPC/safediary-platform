@@ -164,6 +164,22 @@ public class ConversationCommandServiceImpl implements ConversationCommandServic
     }
 
     @Override
+    public Result<ConversationSession, ApplicationError> handle(RenameConversationCommand command) {
+        var found = sessionRepository.findById(command.conversationId());
+        if (found.isEmpty() || (command.accountId() != null && !found.get().getAccountId().equals(command.accountId()))) {
+            return Result.failure(ApplicationError.notFound("Conversation", String.valueOf(command.conversationId())));
+        }
+        var session = found.get();
+        try {
+            session.rename(command.title());
+        } catch (IllegalArgumentException ex) {
+            return Result.failure(ApplicationError.validationError("title", ex.getMessage()));
+        }
+        var saved = sessionRepository.save(session);
+        return Result.success(saved);
+    }
+
+    @Override
     public Result<ConversationSession, ApplicationError> handle(CloseConversationCommand command) {
         return applyToSession(command.sessionId(), ConversationSession::close);
     }

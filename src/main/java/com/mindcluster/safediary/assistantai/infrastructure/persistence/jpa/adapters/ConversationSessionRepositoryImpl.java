@@ -77,6 +77,7 @@ public class ConversationSessionRepositoryImpl implements ConversationSessionRep
                 : persistenceRepository.findById(session.getId())
                     .orElseThrow(() -> new IllegalStateException("conversation session not found: " + session.getId()));
         entity.setAccountId(session.getAccountId());
+        entity.setTitle(session.getTitle());
         entity.setStartedAt(session.getStartedAt());
         entity.setEndedAt(session.getEndedAt());
         entity.setStatus(session.getStatus());

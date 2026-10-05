@@ -18,5 +18,7 @@ public interface ConversationCommandService {
 
     Result<ConversationSession, ApplicationError> handle(ChangePersonalityToneCommand command);
 
+    Result<ConversationSession, ApplicationError> handle(RenameConversationCommand command);
+
     Result<ConversationSession, ApplicationError> handle(CloseConversationCommand command);
 }

@@ -44,6 +44,9 @@ public final class AssistantConversationResourceFromEntityAssembler {
     }
 
     private static String titleOf(ConversationSession session) {
+        if (session.getTitle() != null && !session.getTitle().isBlank()) {
+            return session.getTitle();
+        }
         return session.getMessages().stream()
                 .filter(m -> m.getSender() == MessageSender.USER)
                 .findFirst()

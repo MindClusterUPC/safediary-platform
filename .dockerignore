@@ -1,0 +1,9 @@
+target/
+config/
+.git/
+.idea/
+.vscode/
+.agents/
+*.iml
+HELP.md
+docs/

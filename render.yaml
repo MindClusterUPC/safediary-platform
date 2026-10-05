@@ -1,0 +1,52 @@
+# Render Blueprint: backend (Docker) + PostgreSQL.
+# Render dashboard -> New -> Blueprint -> pick this repository.
+# On first deploy Render asks for the values marked "sync: false" (API keys); they never live in git.
+services:
+  - type: web
+    name: safediary-platform
+    runtime: docker
+    plan: free
+    branch: main
+    region: oregon
+    healthCheckPath: /v3/api-docs
+    autoDeploy: true
+    envVars:
+      - key: DB_HOST
+        fromDatabase:
+          name: safediary-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: safediary-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: safediary-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: safediary-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: safediary-db
+          property: password
+      - key: JPA_SHOW_SQL
+        value: "false"
+      # Gemini (primary). gemini-3.5-flash-lite answers in about 1 s; the bigger model was often overloaded.
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: LLM_FALLBACK_MODEL
+        value: ""
+      # Groq (backup provider, OpenAI-compatible)
+      - key: LLM_BACKUP_API_KEY
+        sync: false
+
+databases:
+  - name: safediary-db
+    plan: free
+    region: oregon
+    databaseName: safediary_db
+    user: safediary

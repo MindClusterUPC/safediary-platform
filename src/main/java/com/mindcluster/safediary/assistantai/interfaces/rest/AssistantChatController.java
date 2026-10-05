@@ -5,6 +5,7 @@ import com.mindcluster.safediary.assistantai.application.queryservices.Conversat
 import com.mindcluster.safediary.assistantai.application.queryservices.CrisisQueryService;
 import com.mindcluster.safediary.assistantai.domain.model.commands.DeleteConversationCommand;
 import com.mindcluster.safediary.assistantai.domain.model.commands.EditUserMessageCommand;
+import com.mindcluster.safediary.assistantai.domain.model.commands.RegenerateLastResponseCommand;
 import com.mindcluster.safediary.assistantai.domain.model.commands.RenameConversationCommand;
 import com.mindcluster.safediary.assistantai.domain.model.commands.SendChatPromptCommand;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PersonalityTone;
@@ -13,6 +14,7 @@ import com.mindcluster.safediary.assistantai.domain.model.queries.GetSessionHist
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.AssistantChatRequestResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.AssistantConversationSummaryResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.EditChatMessageResource;
+import com.mindcluster.safediary.assistantai.interfaces.rest.resources.RegenerateChatMessageResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.resources.RenameConversationResource;
 import com.mindcluster.safediary.assistantai.interfaces.rest.transform.AssistantChatResponseResourceFromResultAssembler;
 import com.mindcluster.safediary.assistantai.interfaces.rest.transform.AssistantConversationResourceFromEntityAssembler;
@@ -121,6 +123,19 @@ public class AssistantChatController {
         var command = new EditUserMessageCommand(demoAccountId, conversationId, messageId,
                 resource.prompt(), resource.locale(),
                 PersonalityTone.fromName(resource.personality()).orElse(null));
+        var result = conversationCommandService.handle(command);
+        return ResponseEntityAssembler.toResponseEntityFromResult(result,
+                AssistantChatResponseResourceFromResultAssembler::toResource, HttpStatus.OK);
+    }
+
+    @PostMapping("/conversations/{conversationId}/regenerate")
+    @Operation(summary = "Regenerate the last assistant reply")
+    public ResponseEntity<?> regenerate(@PathVariable Long conversationId,
+                                        @RequestBody(required = false) RegenerateChatMessageResource resource) {
+        var locale = resource != null ? resource.locale() : null;
+        var personality = resource != null ? resource.personality() : null;
+        var command = new RegenerateLastResponseCommand(demoAccountId, conversationId, locale,
+                PersonalityTone.fromName(personality).orElse(null));
         var result = conversationCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(result,
                 AssistantChatResponseResourceFromResultAssembler::toResource, HttpStatus.OK);

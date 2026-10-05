@@ -24,5 +24,7 @@ public interface ConversationCommandService {
 
     Result<ReflectionResult, ApplicationError> handle(EditUserMessageCommand command);
 
+    Result<ReflectionResult, ApplicationError> handle(RegenerateLastResponseCommand command);
+
     Result<ConversationSession, ApplicationError> handle(CloseConversationCommand command);
 }

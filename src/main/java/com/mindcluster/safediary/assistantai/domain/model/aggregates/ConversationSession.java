@@ -106,6 +106,15 @@ public class ConversationSession extends AbstractDomainAggregateRoot<Conversatio
         messages.subList(targetIndex, messages.size()).clear();
     }
 
+    public ConversationMessage removeLastAssistantReply() {
+        ensureNotClosed();
+        if (!messages.isEmpty() && messages.get(messages.size() - 1).getSender() == MessageSender.AI) {
+            messages.remove(messages.size() - 1);
+        }
+        return findLastUserMessage()
+                .orElseThrow(() -> new IllegalStateException("no user message found in conversation"));
+    }
+
     public List<ConversationMessage> getMessages() {
         return List.copyOf(messages);
     }

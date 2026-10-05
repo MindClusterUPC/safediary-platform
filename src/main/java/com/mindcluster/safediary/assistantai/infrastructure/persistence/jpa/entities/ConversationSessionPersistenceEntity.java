@@ -25,6 +25,9 @@ public class ConversationSessionPersistenceEntity extends AuditableAbstractPersi
     @Column(nullable = false)
     private Long accountId;
 
+    @Column(length = 80)
+    private String title;
+
     @Column(nullable = false)
     private Instant startedAt;
 

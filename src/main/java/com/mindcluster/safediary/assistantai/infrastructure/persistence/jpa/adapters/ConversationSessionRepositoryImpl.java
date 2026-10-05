@@ -14,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Repository adapter that bridges the conversation session repository port with Spring Data JPA.
@@ -77,10 +79,18 @@ public class ConversationSessionRepositoryImpl implements ConversationSessionRep
                 : persistenceRepository.findById(session.getId())
                     .orElseThrow(() -> new IllegalStateException("conversation session not found: " + session.getId()));
         entity.setAccountId(session.getAccountId());
+        entity.setTitle(session.getTitle());
         entity.setStartedAt(session.getStartedAt());
         entity.setEndedAt(session.getEndedAt());
         entity.setStatus(session.getStatus());
         entity.setCurrentTone(session.getCurrentTone());
+
+        var activeMessageIds = session.getMessages().stream()
+                .map(m -> m.getId())
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        entity.getMessages().removeIf(m -> m.getId() != null && !activeMessageIds.contains(m.getId()));
+
         var existingById = new HashMap<Long, ConversationMessagePersistenceEntity>();
         entity.getMessages().forEach(m -> existingById.put(m.getId(), m));
         for (var message : session.getMessages()) {
@@ -98,5 +108,13 @@ public class ConversationSessionRepositoryImpl implements ConversationSessionRep
             domainEventPublisher.publishAndClear(result);
         }
         return result;
+    }
+
+    @Override
+    @Transactional
+    public void delete(ConversationSession session) {
+        if (session != null && session.getId() != null) {
+            persistenceRepository.findById(session.getId()).ifPresent(persistenceRepository::delete);
+        }
     }
 }

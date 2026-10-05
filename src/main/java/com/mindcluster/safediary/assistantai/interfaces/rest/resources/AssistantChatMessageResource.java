@@ -5,5 +5,5 @@ import java.time.Instant;
 /**
  * Message of a mobile chat conversation. Role is "user" or "assistant".
  */
-public record AssistantChatMessageResource(String role, String content, Instant sentAt) {
+public record AssistantChatMessageResource(Long id, String role, String content, Instant sentAt) {
 }

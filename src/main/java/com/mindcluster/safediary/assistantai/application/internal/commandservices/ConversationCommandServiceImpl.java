@@ -10,6 +10,7 @@ import com.mindcluster.safediary.assistantai.application.internal.outboundservic
 import com.mindcluster.safediary.assistantai.domain.model.aggregates.ConversationSession;
 import com.mindcluster.safediary.assistantai.domain.model.aggregates.RiskAssessment;
 import com.mindcluster.safediary.assistantai.domain.model.commands.*;
+import com.mindcluster.safediary.assistantai.domain.model.entities.ConversationMessage;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.CrisisHotline;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.PersonalityTone;
 import com.mindcluster.safediary.assistantai.domain.model.valueobjects.RiskEvaluation;
@@ -23,6 +24,7 @@ import com.mindcluster.safediary.shared.application.result.ApplicationError;
 import com.mindcluster.safediary.shared.application.result.Result;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -161,6 +163,81 @@ public class ConversationCommandServiceImpl implements ConversationCommandServic
     @Override
     public Result<ConversationSession, ApplicationError> handle(ChangePersonalityToneCommand command) {
         return applyToSession(command.sessionId(), session -> session.changeTone(command.tone()));
+    }
+
+    @Override
+    public Result<ConversationSession, ApplicationError> handle(RenameConversationCommand command) {
+        var found = sessionRepository.findById(command.conversationId());
+        if (found.isEmpty() || (command.accountId() != null && !found.get().getAccountId().equals(command.accountId()))) {
+            return Result.failure(ApplicationError.notFound("Conversation", String.valueOf(command.conversationId())));
+        }
+        var session = found.get();
+        try {
+            session.rename(command.title());
+        } catch (IllegalArgumentException ex) {
+            return Result.failure(ApplicationError.validationError("title", ex.getMessage()));
+        }
+        var saved = sessionRepository.save(session);
+        return Result.success(saved);
+    }
+
+    @Override
+    @Transactional
+    public Result<Void, ApplicationError> handle(DeleteConversationCommand command) {
+        var found = sessionRepository.findById(command.conversationId());
+        if (found.isEmpty() || (command.accountId() != null && !found.get().getAccountId().equals(command.accountId()))) {
+            return Result.failure(ApplicationError.notFound("Conversation", String.valueOf(command.conversationId())));
+        }
+        riskAssessmentRepository.deleteAllBySessionId(command.conversationId());
+        sessionRepository.delete(found.get());
+        return Result.success(null);
+    }
+
+    @Override
+    public Result<ReflectionResult, ApplicationError> handle(EditUserMessageCommand command) {
+        var found = sessionRepository.findById(command.conversationId());
+        if (found.isEmpty() || (command.accountId() != null && !found.get().getAccountId().equals(command.accountId()))) {
+            return Result.failure(ApplicationError.notFound("Conversation", String.valueOf(command.conversationId())));
+        }
+        var session = found.get();
+        if (command.tone() != null && command.tone() != session.getCurrentTone()) {
+            session.changeTone(command.tone());
+        }
+        try {
+            session.truncateFrom(command.messageId());
+        } catch (IllegalArgumentException ex) {
+            return Result.failure(ApplicationError.validationError("messageId", ex.getMessage()));
+        } catch (IllegalStateException ex) {
+            return Result.failure(ApplicationError.businessRuleViolation("session-not-closed", ex.getMessage()));
+        }
+        sessionRepository.save(session);
+        return handle(new SendTextMessageCommand(session.getId(), command.prompt(), command.locale()));
+    }
+
+    @Override
+    public Result<ReflectionResult, ApplicationError> handle(RegenerateLastResponseCommand command) {
+        var found = sessionRepository.findById(command.conversationId());
+        if (found.isEmpty() || (command.accountId() != null && !found.get().getAccountId().equals(command.accountId()))) {
+            return Result.failure(ApplicationError.notFound("Conversation", String.valueOf(command.conversationId())));
+        }
+        var session = found.get();
+        if (command.tone() != null && command.tone() != session.getCurrentTone()) {
+            session.changeTone(command.tone());
+        }
+        ConversationMessage lastUserMessage;
+        try {
+            lastUserMessage = session.removeLastAssistantReply();
+        } catch (IllegalStateException ex) {
+            return Result.failure(ApplicationError.businessRuleViolation("no-user-message", ex.getMessage()));
+        }
+        var prompt = lastUserMessage.getContent();
+        try {
+            session.truncateFrom(lastUserMessage.getId());
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return Result.failure(ApplicationError.businessRuleViolation("truncate-failed", ex.getMessage()));
+        }
+        sessionRepository.save(session);
+        return handle(new SendTextMessageCommand(session.getId(), prompt, command.locale()));
     }
 
     @Override

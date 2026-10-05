@@ -19,7 +19,7 @@ public final class ConversationSessionPersistenceAssembler {
         var messages = entity.getMessages().stream()
                 .map(ConversationSessionPersistenceAssembler::toDomainFromPersistence)
                 .toList();
-        return new ConversationSession(entity.getId(), entity.getAccountId(), entity.getStartedAt(),
+        return new ConversationSession(entity.getId(), entity.getAccountId(), entity.getTitle(), entity.getStartedAt(),
                 entity.getEndedAt(), entity.getStatus(), entity.getCurrentTone(), messages);
     }
 

@@ -29,6 +29,7 @@ public class ConversationSession extends AbstractDomainAggregateRoot<Conversatio
 
     private Long id;
     private Long accountId;
+    private String title;
     private Instant startedAt;
     private Instant endedAt;
     private SessionStatus status;
@@ -48,18 +49,70 @@ public class ConversationSession extends AbstractDomainAggregateRoot<Conversatio
     }
 
     /**
+     * Rebuilds a persisted session with custom title. Only used by persistence assemblers.
+     */
+    public ConversationSession(Long id, Long accountId, String title, Instant startedAt, Instant endedAt,
+                               SessionStatus status, PersonalityTone currentTone,
+                               List<ConversationMessage> messages) {
+        this.id = id;
+        this.accountId = accountId;
+        this.title = title;
+        this.startedAt = startedAt;
+        this.endedAt = endedAt;
+        this.status = status;
+        this.currentTone = currentTone;
+        if (messages != null) this.messages.addAll(messages);
+    }
+
+    /**
      * Rebuilds a persisted session. Only used by persistence assemblers.
      */
     public ConversationSession(Long id, Long accountId, Instant startedAt, Instant endedAt,
                                SessionStatus status, PersonalityTone currentTone,
                                List<ConversationMessage> messages) {
-        this.id = id;
-        this.accountId = accountId;
-        this.startedAt = startedAt;
-        this.endedAt = endedAt;
-        this.status = status;
-        this.currentTone = currentTone;
-        this.messages.addAll(messages);
+        this(id, accountId, null, startedAt, endedAt, status, currentTone, messages);
+    }
+
+    public void rename(String title) {
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("title must not be blank");
+        }
+        var trimmed = title.trim();
+        if (trimmed.length() > 80) {
+            throw new IllegalArgumentException("title exceeds 80 characters");
+        }
+        this.title = trimmed;
+    }
+
+    public void truncateFrom(Long messageId) {
+        ensureNotClosed();
+        if (messageId == null) {
+            throw new IllegalArgumentException("messageId must not be null");
+        }
+        int targetIndex = -1;
+        for (int i = 0; i < messages.size(); i++) {
+            if (messageId.equals(messages.get(i).getId())) {
+                targetIndex = i;
+                break;
+            }
+        }
+        if (targetIndex == -1) {
+            throw new IllegalArgumentException("message not found: " + messageId);
+        }
+        var targetMessage = messages.get(targetIndex);
+        if (targetMessage.getSender() != MessageSender.USER) {
+            throw new IllegalArgumentException("can only truncate from a user message");
+        }
+        messages.subList(targetIndex, messages.size()).clear();
+    }
+
+    public ConversationMessage removeLastAssistantReply() {
+        ensureNotClosed();
+        if (!messages.isEmpty() && messages.get(messages.size() - 1).getSender() == MessageSender.AI) {
+            messages.remove(messages.size() - 1);
+        }
+        return findLastUserMessage()
+                .orElseThrow(() -> new IllegalStateException("no user message found in conversation"));
     }
 
     public List<ConversationMessage> getMessages() {

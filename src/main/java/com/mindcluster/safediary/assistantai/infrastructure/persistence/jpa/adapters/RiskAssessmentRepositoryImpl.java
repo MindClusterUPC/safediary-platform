@@ -39,4 +39,10 @@ public class RiskAssessmentRepositoryImpl implements RiskAssessmentRepository {
         return persistenceRepository.findFirstBySessionIdOrderByAssessedAtDesc(sessionId)
                 .map(RiskAssessmentPersistenceAssembler::toDomainFromPersistence);
     }
+
+    @Override
+    @Transactional
+    public void deleteAllBySessionId(Long sessionId) {
+        persistenceRepository.deleteAllBySessionId(sessionId);
+    }
 }

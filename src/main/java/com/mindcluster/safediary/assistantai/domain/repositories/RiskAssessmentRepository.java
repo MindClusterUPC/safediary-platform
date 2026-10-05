@@ -12,4 +12,6 @@ public interface RiskAssessmentRepository {
     RiskAssessment save(RiskAssessment assessment);
 
     Optional<RiskAssessment> findLatestBySessionId(Long sessionId);
+
+    void deleteAllBySessionId(Long sessionId);
 }

@@ -149,8 +149,12 @@ public class ConversationCommandServiceImpl implements ConversationCommandServic
                     .filter(s -> s.getAccountId().equals(command.accountId()))
                     .filter(s -> s.getStatus() != SessionStatus.CLOSED);
         }
-        var resolved = session.orElseGet(() ->
-                sessionRepository.save(new ConversationSession(command.accountId(), PersonalityTone.EMPATHIC)));
+        var resolved = session.orElseGet(() -> sessionRepository.save(new ConversationSession(command.accountId(),
+                command.tone() != null ? command.tone() : PersonalityTone.EMPATHIC)));
+        if (command.tone() != null && command.tone() != resolved.getCurrentTone()) {
+            resolved.changeTone(command.tone());
+            resolved = sessionRepository.save(resolved);
+        }
         return handle(new SendTextMessageCommand(resolved.getId(), command.prompt(), command.locale()));
     }
 

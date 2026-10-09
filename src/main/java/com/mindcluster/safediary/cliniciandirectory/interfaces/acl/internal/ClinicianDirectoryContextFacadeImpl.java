@@ -6,6 +6,9 @@ import com.mindcluster.safediary.cliniciandirectory.application.commandservices.
 import com.mindcluster.safediary.cliniciandirectory.application.queryservices.DirectoryQueryService;
 import com.mindcluster.safediary.cliniciandirectory.domain.model.commands.RecordCompletedSessionCommand;
 import com.mindcluster.safediary.cliniciandirectory.domain.model.queries.GetClinicianProfileQuery;
+import com.mindcluster.safediary.cliniciandirectory.domain.model.queries.GetOwnClinicianProfileQuery;
+import com.mindcluster.safediary.cliniciandirectory.domain.model.valueobjects.DirectoryActor;
+import com.mindcluster.safediary.cliniciandirectory.domain.model.valueobjects.DirectoryRole;
 import com.mindcluster.safediary.shared.application.result.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,11 @@ public class ClinicianDirectoryContextFacadeImpl implements ClinicianDirectoryCo
         return queries.handle(new GetClinicianProfileQuery(id)).map(p -> new PublishedClinicianRateDto(
                 p.getId(), p.getDisplayName(), p.getRate().amount(), p.getRate().currency(),
                 p.getRate().durationMinutes(), p.getRate().version()));
+    }
+    public Optional<Long> fetchClinicianIdByAccountId(Long accountId) {
+        if (accountId == null || accountId <= 0) return Optional.empty();
+        return queries.handle(new GetOwnClinicianProfileQuery(new DirectoryActor(accountId, DirectoryRole.PSYCHOLOGIST)))
+                .map(p -> p.getId());
     }
     public Result<Long, ApplicationError> recordCompletedSession(CompletedCareSessionDto s) {
         return commands.handle(new RecordCompletedSessionCommand(s.appointmentId(), s.clinicianId(),

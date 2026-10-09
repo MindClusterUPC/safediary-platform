@@ -137,7 +137,8 @@ Después de un rechazo se puede enviar una nueva solicitud.
 
 ## Reseñas e integración con Care Scheduling
 
-Care Scheduling todavía no existe en esta plataforma. Las reseñas necesitan una
+Care Scheduling publica este evento al cerrar una atención como `COMPLETED`
+(ver [CARE_SCHEDULING.md](CARE_SCHEDULING.md)). Las reseñas necesitan una
 sesión completada recibida por la facade ACL o el consumidor de eventos internos:
 
 ```java

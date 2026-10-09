@@ -1,4 +1,4 @@
-# Render Blueprint: backend (Docker) + PostgreSQL.
+# Render Blueprint: backend (Docker). The PostgreSQL database is external (filess.io).
 # Render dashboard -> New -> Blueprint -> pick this repository.
 # On first deploy Render asks for the values marked "sync: false" (API keys); they never live in git.
 services:
@@ -11,26 +11,19 @@ services:
     healthCheckPath: /v3/api-docs
     autoDeploy: true
     envVars:
+      # External PostgreSQL (filess.io). Fill these in the Render dashboard; they never live in git.
       - key: DB_HOST
-        fromDatabase:
-          name: safediary-db
-          property: host
+        sync: false
       - key: DB_PORT
-        fromDatabase:
-          name: safediary-db
-          property: port
+        sync: false
       - key: DB_NAME
-        fromDatabase:
-          name: safediary-db
-          property: database
+        sync: false
       - key: DB_USER
-        fromDatabase:
-          name: safediary-db
-          property: user
+        sync: false
       - key: DB_PASSWORD
-        fromDatabase:
-          name: safediary-db
-          property: password
+        sync: false
+      - key: DB_POOL_SIZE
+        value: "3"
       - key: SPRING_PROFILES_ACTIVE
         value: prod
       # Gemini (primary). gemini-3.5-flash-lite answers in about 1 s; the bigger model was often overloaded.
@@ -44,9 +37,3 @@ services:
       - key: LLM_BACKUP_API_KEY
         sync: false
 
-databases:
-  - name: safediary-db
-    plan: free
-    region: oregon
-    databaseName: safediary_db
-    user: safediary

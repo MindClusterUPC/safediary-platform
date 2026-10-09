@@ -1,5 +1,8 @@
 # Entornos: development y production
 
+Para arrancar en Windows, abrir Swagger y probar Clinician Directory, consulta
+[CLINICIAN_DIRECTORY.md](CLINICIAN_DIRECTORY.md).
+
 El backend usa **perfiles de Spring**:
 
 | Perfil | Dónde | Cómo se activa | Archivo |
@@ -11,7 +14,9 @@ La configuración común está en `application.properties`. Lo que cambia según
 
 ## Development (tu PC)
 
-No hace falta configurar nada para la base de datos: usa PostgreSQL local (`localhost:5432/safediary_db`, usuario `postgres`).
+Usa PostgreSQL local (`localhost:5432/safediary_db`, usuario `postgres`).
+PostgreSQL debe estar en ejecución y la base debe existir; define `DB_PASSWORD`
+si tu contraseña difiere del valor de desarrollo. Hibernate crea los esquemas en dev.
 
 Las **keys de IA** van en `config/application.properties`. Ese archivo está en `.gitignore` y nunca se sube. Créalo así:
 
@@ -20,7 +25,8 @@ spring.ai.google.genai.api-key=TU_KEY_DE_GEMINI
 assistantai.llm.backup.api-key=TU_KEY_DE_GROQ
 ```
 
-Basta con una sola de las dos keys. Si no tienes ninguna, arranca con IA simulada usando la variable `ASSISTANTAI_LLM_PROVIDER=mock`.
+Basta con una sola de las dos keys. En dev la IA simulada (`mock`) es el valor
+predeterminado; para usar tus keys activa `ASSISTANTAI_LLM_PROVIDER=spring-ai`.
 
 ## Production (Render)
 
@@ -30,7 +36,8 @@ Todo sale de variables de entorno. El perfil `prod` **no tiene valores por defec
 |---|---|---|---|
 | `SPRING_PROFILES_ACTIVE` | sí | `render.yaml` | `prod` |
 | `PORT` | sí | Render la pone sola | — |
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | sí | `render.yaml`, desde la base `safediary-db` | — |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | sí | Render te las pide (datos de filess.io) | — |
+| `DB_POOL_SIZE` | no | `render.yaml` | `3` (conexiones máximas a la base) |
 | `GEMINI_API_KEY` | una de las dos keys | Render te la pide (secreta) | — |
 | `LLM_BACKUP_API_KEY` | una de las dos keys | Render te la pide (secreta) | key de Groq |
 | `GEMINI_MODEL` | no | `render.yaml` | `gemini-3.5-flash-lite` |

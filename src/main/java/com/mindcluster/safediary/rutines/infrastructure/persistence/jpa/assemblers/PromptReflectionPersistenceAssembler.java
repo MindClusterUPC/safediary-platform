@@ -12,7 +12,6 @@ public final class PromptReflectionPersistenceAssembler {
     public static PromptReflection toDomain(PromptReflectionPersistenceEntity entity) {
         if (entity == null) return null;
 
-        // La respuesta puede ser nula si la reflexión sigue en estado PENDING
         ReflectionAnswer answerVo = entity.getAnswer() != null 
                 ? ReflectionAnswer.of(entity.getAnswer()) 
                 : null;

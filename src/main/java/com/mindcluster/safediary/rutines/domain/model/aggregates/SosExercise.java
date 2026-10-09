@@ -1,6 +1,8 @@
 package com.mindcluster.safediary.rutines.domain.model.aggregates;
 
+import com.mindcluster.safediary.rutines.domain.model.events.SosExerciseCompletedEvent;
 import com.mindcluster.safediary.rutines.domain.model.valueobjects.ExerciseType;
+import com.mindcluster.safediary.rutines.domain.model.valueobjects.StepMetrics;
 import com.mindcluster.safediary.shared.domain.model.aggregates.AbstractDomainAggregateRoot;
 import lombok.Getter;
 
@@ -12,9 +14,8 @@ public class SosExercise extends AbstractDomainAggregateRoot<SosExercise> {
 
     private Long id;
     private Long patientId;
-    private ExerciseType type;
-    private Integer currentStep;
-    private Integer totalSteps;
+    private ExerciseType exerciseType;
+    private StepMetrics stepMetrics;
     private ExerciseStatus status;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
@@ -25,26 +26,38 @@ public class SosExercise extends AbstractDomainAggregateRoot<SosExercise> {
         ABANDONED
     }
 
-    public SosExercise(Long patientId, ExerciseType type, Integer totalSteps) {
+    public SosExercise(Long patientId, ExerciseType exerciseType, Integer totalSteps) {
         this.patientId = Objects.requireNonNull(patientId, "patientId is required");
-        this.type = Objects.requireNonNull(type, "type is required");
-        this.totalSteps = Objects.requireNonNull(totalSteps, "totalSteps is required");
-        
-        if (this.totalSteps < 1) {
-            throw new IllegalArgumentException("totalSteps must be at least 1");
-        }
-
-        this.currentStep = 1;
+        this.exerciseType = Objects.requireNonNull(exerciseType, "exerciseType is required");
+        this.stepMetrics = StepMetrics.initial(totalSteps);
         this.status = ExerciseStatus.STARTED;
         this.startedAt = LocalDateTime.now();
     }
 
-    public SosExercise(Long id, Long patientId, ExerciseType type, Integer currentStep, Integer totalSteps, ExerciseStatus status, LocalDateTime startedAt, LocalDateTime completedAt) {
-        this(patientId, type, totalSteps);
+    public SosExercise(Long patientId, ExerciseType exerciseType, StepMetrics stepMetrics) {
+        this.patientId = Objects.requireNonNull(patientId, "patientId is required");
+        this.exerciseType = Objects.requireNonNull(exerciseType, "exerciseType is required");
+        this.stepMetrics = Objects.requireNonNull(stepMetrics, "stepMetrics is required");
+        this.status = ExerciseStatus.STARTED;
+        this.startedAt = LocalDateTime.now();
+    }
+
+    public SosExercise(Long id, Long patientId, ExerciseType exerciseType, StepMetrics stepMetrics, LocalDateTime completedAt) {
+        this(patientId, exerciseType, stepMetrics);
         this.id = id;
-        this.currentStep = Objects.requireNonNull(currentStep, "currentStep is required");
+        this.completedAt = completedAt;
+        if (completedAt != null) {
+            this.status = ExerciseStatus.COMPLETED;
+        }
+    }
+
+    public SosExercise(Long id, Long patientId, ExerciseType exerciseType, StepMetrics stepMetrics, ExerciseStatus status, LocalDateTime startedAt, LocalDateTime completedAt) {
+        this.id = id;
+        this.patientId = Objects.requireNonNull(patientId, "patientId is required");
+        this.exerciseType = Objects.requireNonNull(exerciseType, "exerciseType is required");
+        this.stepMetrics = Objects.requireNonNull(stepMetrics, "stepMetrics is required");
         this.status = Objects.requireNonNull(status, "status is required");
-        this.startedAt = Objects.requireNonNull(startedAt, "startedAt is required");
+        this.startedAt = startedAt != null ? startedAt : LocalDateTime.now();
         this.completedAt = completedAt;
     }
 
@@ -52,12 +65,10 @@ public class SosExercise extends AbstractDomainAggregateRoot<SosExercise> {
         if (this.status != ExerciseStatus.STARTED) {
             throw new IllegalStateException("Exercise is not in progress");
         }
-        
-        if (this.currentStep < this.totalSteps) {
-            this.currentStep++;
-        }
-        
-        if (this.currentStep.equals(this.totalSteps)) {
+
+        this.stepMetrics = this.stepMetrics.advance();
+
+        if (this.stepMetrics.isCompleted()) {
             complete();
         }
     }
@@ -68,6 +79,14 @@ public class SosExercise extends AbstractDomainAggregateRoot<SosExercise> {
         }
         this.status = ExerciseStatus.COMPLETED;
         this.completedAt = LocalDateTime.now();
+
+        this.registerEvent(new SosExerciseCompletedEvent(
+                this.id,
+                this.patientId,
+                this.exerciseType.value(),
+                this.stepMetrics.totalSteps(),
+                this.completedAt
+        ));
     }
 
     public void abandon() {
@@ -76,5 +95,17 @@ public class SosExercise extends AbstractDomainAggregateRoot<SosExercise> {
         }
         this.status = ExerciseStatus.ABANDONED;
         this.completedAt = LocalDateTime.now();
+    }
+
+    public ExerciseType getType() {
+        return exerciseType;
+    }
+
+    public Integer getCurrentStep() {
+        return stepMetrics != null ? stepMetrics.currentStep() : null;
+    }
+
+    public Integer getTotalSteps() {
+        return stepMetrics != null ? stepMetrics.totalSteps() : null;
     }
 }

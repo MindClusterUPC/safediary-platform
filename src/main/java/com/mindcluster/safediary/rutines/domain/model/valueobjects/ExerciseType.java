@@ -1,8 +1,16 @@
 package com.mindcluster.safediary.rutines.domain.model.valueobjects;
 
-#Clasifica si se esta haciendo un "Guided breathing" o un "Grounding exercise"
+public record ExerciseType(String value) {
+    public ExerciseType {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Exercise type cannot be null or blank");
+        }
+        if (value.length() > 100) {
+            throw new IllegalArgumentException("Exercise type cannot exceed 100 characters");
+        }
+    }
 
-public enum ExerciseType {
-    GUIDED_BREATHING,
-    GROUNDING_EXERCISE
+    public static ExerciseType of(String value) {
+        return new ExerciseType(value);
+    }
 }

@@ -1,5 +1,9 @@
 package com.mindcluster.safediary.rutines.domain.model.commands;
 
-public record CompleteSosExerciseCommand(
-        Long sosExerciseId
-) {}
+public record CompleteSosExerciseCommand(Long sosExerciseId) {
+    public CompleteSosExerciseCommand {
+        if (sosExerciseId == null) {
+            throw new IllegalArgumentException("sosExerciseId is required");
+        }
+    }
+}

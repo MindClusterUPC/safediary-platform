@@ -252,4 +252,5 @@ El backend utiliza migraciones versionadas bajo `src/main/resources/db/migration
 |---|---|
 | AssistantAI | **Implementado** en backend (Spring Data JPA); columnas y entidades alineadas con `schema.sql`. |
 | Clinician Directory | **Implementado** con JPA, REST, tarifas versionadas, verificación, reseñas y moderación. IAM y Care Scheduling se conectan mediante puertos y facade ACL; ver [guía de endpoints](../CLINICIAN_DIRECTORY.md). |
-| IAM, Profiles, Diary, Rutines, Care Scheduling, Payments | **Diseño completo de referencia** en `schema.sql` listo para migraciones de cada bounded context. Profiles ya tiene endpoints heredados de pacientes y psicólogos, pendientes de reconciliar con este diseño. |
+| Care Scheduling | **Implementado** con JPA y REST: solicitudes de contacto y chat, disponibilidad semanal, propuestas, retención de 1 hora, confirmación por pago, cancelación, sesión y resumen autorizado. Tablas alineadas con `schema.sql`. Clinician Directory, Payments, AssistantAI e IAM se conectan mediante puertos y facades ACL; ver [guía de endpoints](../CARE_SCHEDULING.md). |
+| IAM, Profiles, Diary, Rutines, Payments | **Diseño completo de referencia** en `schema.sql` listo para migraciones de cada bounded context. Profiles ya tiene endpoints heredados de pacientes y psicólogos, pendientes de reconciliar con este diseño. |

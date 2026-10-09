@@ -57,7 +57,8 @@ public class ConversationCommandServiceImpl implements ConversationCommandServic
     private final RiskPolicyService riskPolicyService;
     private final EmotionClassifierService emotionClassifierService;
     private final CognitiveDistortionService cognitiveDistortionService;
-    private final int historyLimit;
+    @Value("${assistantai.llm.history-limit:20}")
+    private int historyLimit = 20;
 
     public ConversationCommandServiceImpl(ConversationSessionRepository sessionRepository,
                                           RiskAssessmentRepository riskAssessmentRepository,
@@ -65,8 +66,7 @@ public class ConversationCommandServiceImpl implements ConversationCommandServic
                                           CrisisHotlineDirectory crisisHotlineDirectory,
                                           RiskPolicyService riskPolicyService,
                                           EmotionClassifierService emotionClassifierService,
-                                          CognitiveDistortionService cognitiveDistortionService,
-                                          @Value("${assistantai.llm.history-limit:20}") int historyLimit) {
+                                          CognitiveDistortionService cognitiveDistortionService) {
         this.sessionRepository = sessionRepository;
         this.riskAssessmentRepository = riskAssessmentRepository;
         this.languageModel = languageModel;
@@ -74,7 +74,6 @@ public class ConversationCommandServiceImpl implements ConversationCommandServic
         this.riskPolicyService = riskPolicyService;
         this.emotionClassifierService = emotionClassifierService;
         this.cognitiveDistortionService = cognitiveDistortionService;
-        this.historyLimit = historyLimit;
     }
 
     @Override

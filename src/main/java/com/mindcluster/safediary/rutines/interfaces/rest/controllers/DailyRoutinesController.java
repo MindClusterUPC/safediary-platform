@@ -3,6 +3,7 @@ package com.mindcluster.safediary.rutines.interfaces.rest.controllers;
 import com.mindcluster.safediary.rutines.application.commandservices.RoutineCommandService;
 import com.mindcluster.safediary.rutines.application.queryservices.RoutineQueryService;
 import com.mindcluster.safediary.rutines.domain.model.commands.CreateDailyRoutineCommand;
+import com.mindcluster.safediary.rutines.domain.model.commands.ToggleDailyRoutineActiveCommand;
 import com.mindcluster.safediary.rutines.domain.model.commands.ToggleRoutineNotificationCommand;
 import com.mindcluster.safediary.rutines.domain.model.commands.UpdateDailyRoutineCommand;
 import com.mindcluster.safediary.rutines.domain.model.queries.GetAllRoutinesByUserIdQuery;
@@ -97,6 +98,18 @@ public class DailyRoutinesController {
                 id,
                 resource.isEnabled()
         );
+        var result = routineCommandService.handle(command);
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                DailyRoutineResourceAssembler::toResource,
+                HttpStatus.OK
+        );
+    }
+
+    @PatchMapping("/{id}/toggle-active")
+    @Operation(summary = "Toggle active status for a daily routine")
+    public ResponseEntity<?> toggleRoutineActive(@PathVariable Long id) {
+        var command = new ToggleDailyRoutineActiveCommand(id);
         var result = routineCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,

@@ -6,6 +6,7 @@ import com.mindcluster.safediary.rutines.domain.model.aggregates.PromptReflectio
 import com.mindcluster.safediary.rutines.domain.model.aggregates.SosExercise;
 import com.mindcluster.safediary.rutines.domain.model.commands.*;
 import com.mindcluster.safediary.rutines.domain.model.valueobjects.NotificationStatus;
+import com.mindcluster.safediary.rutines.domain.model.valueobjects.PromptText;
 import com.mindcluster.safediary.rutines.domain.model.valueobjects.ReflectionAnswer;
 import com.mindcluster.safediary.rutines.domain.model.valueobjects.RoutineTitle;
 import com.mindcluster.safediary.rutines.domain.repositories.DailyRoutineRepository;
@@ -100,6 +101,31 @@ public class RoutineCommandServiceImpl implements RoutineCommandService {
 
     @Override
     @Transactional
+    public Result<DailyRoutine, ApplicationError> handle(ToggleDailyRoutineActiveCommand command) {
+        try {
+            var routineOpt = dailyRoutineRepository.findById(command.routineId());
+            if (routineOpt.isEmpty()) {
+                return Result.failure(ApplicationError.notFound("DailyRoutine", String.valueOf(command.routineId())));
+            }
+            var routine = routineOpt.get();
+
+            if (routine.isActive()) {
+                routine.deactivateRoutine();
+            } else {
+                routine.activateRoutine();
+            }
+
+            var saved = dailyRoutineRepository.save(routine);
+            return Result.success(saved);
+        } catch (IllegalArgumentException ex) {
+            return Result.failure(ApplicationError.validationError("daily-routine-toggle-active", ex.getMessage()));
+        } catch (Exception ex) {
+            return Result.failure(ApplicationError.unexpected("daily-routine-toggle-active", ex.getMessage()));
+        }
+    }
+
+    @Override
+    @Transactional
     public Result<SosExercise, ApplicationError> handle(StartSosExerciseCommand command) {
         try {
             var exercise = new SosExercise(command.patientId(), command.type(), command.totalSteps());
@@ -151,6 +177,21 @@ public class RoutineCommandServiceImpl implements RoutineCommandService {
             return Result.failure(ApplicationError.validationError("sos-exercise-complete", ex.getMessage()));
         } catch (Exception ex) {
             return Result.failure(ApplicationError.unexpected("sos-exercise-complete", ex.getMessage()));
+        }
+    }
+
+    @Override
+    @Transactional
+    public Result<PromptReflection, ApplicationError> handle(CreatePromptReflectionCommand command) {
+        try {
+            var promptTextVo = PromptText.of(command.promptText());
+            var reflection = new PromptReflection(command.patientId(), promptTextVo);
+            var saved = promptReflectionRepository.save(reflection);
+            return Result.success(saved);
+        } catch (IllegalArgumentException ex) {
+            return Result.failure(ApplicationError.validationError("prompt-reflection-creation", ex.getMessage()));
+        } catch (Exception ex) {
+            return Result.failure(ApplicationError.unexpected("prompt-reflection-creation", ex.getMessage()));
         }
     }
 

@@ -2,9 +2,11 @@ package com.mindcluster.safediary.rutines.interfaces.rest.controllers;
 
 import com.mindcluster.safediary.rutines.application.commandservices.RoutineCommandService;
 import com.mindcluster.safediary.rutines.application.queryservices.RoutineQueryService;
+import com.mindcluster.safediary.rutines.domain.model.commands.CreatePromptReflectionCommand;
 import com.mindcluster.safediary.rutines.domain.model.commands.SubmitDailyReflectionCommand;
 import com.mindcluster.safediary.rutines.domain.model.queries.GetPendingDailyReflectionQuery;
 import com.mindcluster.safediary.rutines.domain.model.queries.GetPromptReflectionByIdQuery;
+import com.mindcluster.safediary.rutines.interfaces.rest.resources.CreatePromptReflectionResource;
 import com.mindcluster.safediary.rutines.interfaces.rest.resources.PromptReflectionResponseResource;
 import com.mindcluster.safediary.rutines.interfaces.rest.resources.SubmitDailyReflectionResource;
 import com.mindcluster.safediary.rutines.interfaces.rest.transform.PromptReflectionResourceAssembler;
@@ -31,6 +33,21 @@ public class PromptReflectionsController {
         this.routineQueryService = routineQueryService;
     }
 
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    @Operation(summary = "Create/assign a daily prompt reflection for a patient")
+    public ResponseEntity<?> createPromptReflection(@Valid @RequestBody CreatePromptReflectionResource resource) {
+        var command = new CreatePromptReflectionCommand(
+                resource.patientId(),
+                resource.promptText()
+        );
+        var result = routineCommandService.handle(command);
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                PromptReflectionResourceAssembler::toResource,
+                HttpStatus.CREATED
+        );
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get a prompt reflection by ID")
     public ResponseEntity<PromptReflectionResponseResource> getReflectionById(@PathVariable Long id) {
@@ -52,7 +69,7 @@ public class PromptReflectionsController {
     @PatchMapping(value = "/{id}/submit", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Submit an answer for a pending prompt reflection")
     public ResponseEntity<?> submitReflection(@PathVariable Long id,
-                                              @Valid @RequestBody SubmitDailyReflectionResource resource) {
+                                               @Valid @RequestBody SubmitDailyReflectionResource resource) {
         var command = new SubmitDailyReflectionCommand(
                 id,
                 resource.answer()

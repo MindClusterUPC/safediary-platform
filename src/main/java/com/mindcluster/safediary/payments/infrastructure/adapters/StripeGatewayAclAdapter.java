@@ -28,9 +28,9 @@ public class StripeGatewayAclAdapter implements StripeGatewayClient {
     private final StripeProperties properties;
     private final ObjectMapper objectMapper;
 
-    public StripeGatewayAclAdapter(StripeProperties properties, ObjectMapper objectMapper) {
+    public StripeGatewayAclAdapter(StripeProperties properties) {
         this.properties = properties;
-        this.objectMapper = objectMapper;
+        this.objectMapper = new ObjectMapper();
     }
 
     @Override

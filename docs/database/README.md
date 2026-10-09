@@ -19,7 +19,7 @@ SafeDiary está estructurado en **8 bounded contexts**:
 | `diary` | Diary | | `diary_entries`, `entry_tags`, `external_factors`, `entry_attachments`, `mood_check_ins`, `diary_reminders`, `streaks`, `badges` |
 | `assistantai` | AssistantAI | | `conversation_sessions`, `conversation_messages`, `cognitive_distortions`, `risk_assessments`, `clinical_summaries` |
 | `rutines` | Rutines | | `routines`, `scheduled_notifications`, `routine_completions`, `writing_prompts`, `sos_exercise_logs` |
-| `clinician_directory` | Clinician Directory | | `clinician_profiles`, `clinician_specialties`, `verification_requests`, `consultation_rates`, `reviews`, `rating_summaries`, `trust_scores` |
+| `clinician_directory` | Clinician Directory | | `clinician_profiles`, `clinician_specialties`, `verification_requests`, `consultation_rates`, `reviews`, `review_helpful_votes`, `review_reports`, `completed_sessions`, `rating_summaries`, `trust_scores` |
 | `care_scheduling` | Care Scheduling | | `contact_requests`, `coordination_messages`, `availability_slots`, `appointments`, `slot_holds`, `clinical_sessions`, `summary_access_audits` |
 | `payments` | Payments & Payouts | | `payment_intents`, `subscriptions`, `receipts`, `professional_ledger_movements`, `payout_methods`, `payout_requests` |
 
@@ -163,6 +163,9 @@ erDiagram
     CLINICIAN_PROFILES ||--o{ VERIFICATION_REQUESTS : "acredita"
     CLINICIAN_PROFILES ||--o{ CONSULTATION_RATES : "publica"
     CLINICIAN_PROFILES ||--o{ REVIEWS : "recibe"
+    CLINICIAN_PROFILES ||--o{ COMPLETED_SESSIONS : "recibe elegibilidad"
+    REVIEWS ||--o{ REVIEW_HELPFUL_VOTES : "utilidad"
+    REVIEWS ||--o{ REVIEW_REPORTS : "moderacion"
     CLINICIAN_PROFILES ||--|| RATING_SUMMARIES : "resume"
     CLINICIAN_PROFILES ||--|| TRUST_SCORES : "explica confianza"
 ```
@@ -248,4 +251,5 @@ El backend utiliza migraciones versionadas bajo `src/main/resources/db/migration
 | Contexto | Estado |
 |---|---|
 | AssistantAI | **Implementado** en backend (Spring Data JPA); columnas y entidades alineadas con `schema.sql`. |
-| IAM, Profiles, Diary, Rutines, Clinician Directory, Care Scheduling, Payments | **Diseño completo de referencia** en `schema.sql` listo para migraciones de cada bounded context. |
+| Clinician Directory | **Implementado** con JPA, REST, tarifas versionadas, verificación, reseñas y moderación. IAM y Care Scheduling se conectan mediante puertos y facade ACL; ver [guía de endpoints](../CLINICIAN_DIRECTORY.md). |
+| IAM, Profiles, Diary, Rutines, Care Scheduling, Payments | **Diseño completo de referencia** en `schema.sql` listo para migraciones de cada bounded context. Profiles ya tiene endpoints heredados de pacientes y psicólogos, pendientes de reconciliar con este diseño. |

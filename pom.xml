@@ -95,8 +95,7 @@
 			<artifactId>spring-ai-starter-model-openai</artifactId>
 		</dependency>
 
-		<!-- Spring Security (se activará al implementar el Bounded Context IAM) -->
-		<!--
+		<!-- Spring Security + JWT (Bounded Context IAM) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-security</artifactId>
@@ -118,7 +117,12 @@
 			<version>0.12.6</version>
 			<scope>runtime</scope>
 		</dependency>
-		-->
+
+		<!-- IAM: password reset codes by e-mail (active only when spring.mail.host is configured) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
 
 		<dependency>
 			<groupId>com.stripe</groupId>

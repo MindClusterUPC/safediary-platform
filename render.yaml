@@ -37,3 +37,6 @@ services:
       - key: LLM_BACKUP_API_KEY
         sync: false
 
+      # IAM: JWT signing secret (generated once by Render, never stored in git)
+      - key: IAM_JWT_SECRET
+        generateValue: true

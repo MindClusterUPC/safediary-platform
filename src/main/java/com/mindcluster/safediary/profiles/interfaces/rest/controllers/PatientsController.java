@@ -1,5 +1,6 @@
 package com.mindcluster.safediary.profiles.interfaces.rest.controllers;
 
+import com.mindcluster.safediary.payments.interfaces.acl.PaymentsContextFacade;
 import com.mindcluster.safediary.profiles.application.commandservices.ProfileCommandService;
 import com.mindcluster.safediary.profiles.application.queryservices.ProfileQueryService;
 import com.mindcluster.safediary.profiles.domain.model.commands.RegisterPatientCommand;
@@ -28,11 +29,14 @@ public class PatientsController {
 
     private final ProfileCommandService profileCommandService;
     private final ProfileQueryService profileQueryService;
+    private final PaymentsContextFacade paymentsContextFacade;
 
     public PatientsController(ProfileCommandService profileCommandService,
-                              ProfileQueryService profileQueryService) {
+                              ProfileQueryService profileQueryService,
+                              PaymentsContextFacade paymentsContextFacade) {
         this.profileCommandService = profileCommandService;
         this.profileQueryService = profileQueryService;
+        this.paymentsContextFacade = paymentsContextFacade;
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -51,7 +55,10 @@ public class PatientsController {
         var result = profileCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
-                PatientResourceAssembler::toResource,
+                patient -> {
+                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
+                    return PatientResourceAssembler.toResource(patient, planStatus);
+                },
                 HttpStatus.CREATED
         );
     }
@@ -60,7 +67,10 @@ public class PatientsController {
     @Operation(summary = "Get patient profile by ID")
     public ResponseEntity<PatientResponseResource> getPatientById(@PathVariable Long id) {
         return profileQueryService.handle(new GetPatientByIdQuery(id))
-                .map(PatientResourceAssembler::toResource)
+                .map(patient -> {
+                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
+                    return PatientResourceAssembler.toResource(patient, planStatus);
+                })
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -69,7 +79,10 @@ public class PatientsController {
     @Operation(summary = "List all registered patients")
     public ResponseEntity<List<PatientResponseResource>> getAllPatients() {
         var patients = profileQueryService.handle(new GetAllPatientsQuery()).stream()
-                .map(PatientResourceAssembler::toResource)
+                .map(patient -> {
+                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
+                    return PatientResourceAssembler.toResource(patient, planStatus);
+                })
                 .toList();
         return ResponseEntity.ok(patients);
     }
@@ -88,7 +101,10 @@ public class PatientsController {
         var result = profileCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
-                PatientResourceAssembler::toResource,
+                patient -> {
+                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
+                    return PatientResourceAssembler.toResource(patient, planStatus);
+                },
                 HttpStatus.OK
         );
     }

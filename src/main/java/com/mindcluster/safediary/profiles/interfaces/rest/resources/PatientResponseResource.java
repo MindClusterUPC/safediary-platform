@@ -8,12 +8,19 @@ public record PatientResponseResource(
         String lastName,
         String fullName,
         String email,
-        EmergencyContactResource emergencyContact
+        EmergencyContactResource emergencyContact,
+        PlanStatusResource planStatus
 ) {
     public record EmergencyContactResource(
             String name,
             RelationshipType relationship,
             String phoneNumber,
             String email
+    ) {}
+
+    public record PlanStatusResource(
+            String plan,
+            String status,
+            boolean active
     ) {}
 }

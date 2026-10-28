@@ -7,6 +7,8 @@ import com.mindcluster.safediary.iam.infrastructure.authorization.sfs.pipeline.S
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderNotFoundException;
 import org.springframework.security.config.Customizer;
@@ -17,16 +19,28 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Stateless JWT security. IAM's own private endpoints require a bearer token; the rest of the API keeps its
- * current access rules and receives the verified identity from the bearer filter whenever a token is sent.
+ * Stateless JWT security. Private endpoints require a bearer token; public endpoints
+ * (authentication, OpenAPI/Swagger, Scalar docs, webhooks, public directory catalog) are accessible without authentication.
  */
 @Configuration
 public class WebSecurityConfiguration {
-    private static final String[] IAM_PRIVATE_ENDPOINTS = {
-            "/api/v1/accounts/**", "/api/v1/consents/**", "/api/v1/consent-scopes/**", "/api/v1/vault/**", "/api/v1/audit-events/**"};
+    private static final String[] PUBLIC_ENDPOINTS = {
+            "/api/v1/authentication/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/v3/api-docs/**",
+            "/scalar/**",
+            "/scalar",
+            "/docs/**",
+            "/docs",
+            "/api/v1/payments/webhooks/**",
+            "/api/v1/dev/**",
+            "/error",
+            "/favicon.ico"
+    };
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, TokenService tokens, AccountRepository accounts) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, TokenService tokens, AccountRepository accounts, Environment environment) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .httpBasic(AbstractHttpConfigurer::disable)
@@ -39,9 +53,10 @@ public class WebSecurityConfiguration {
                         .accessDeniedHandler((request, response, ex) -> SecurityErrorWriter.write(response,
                                 HttpServletResponse.SC_FORBIDDEN, "FORBIDDEN", "Access to this resource is not allowed")))
                 .authorizeHttpRequests(requests -> requests
-                        .requestMatchers(IAM_PRIVATE_ENDPOINTS).authenticated()
-                        .anyRequest().permitAll())
-                .addFilterBefore(new BearerAuthorizationRequestFilter(tokens, accounts), UsernamePasswordAuthenticationFilter.class);
+                        .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/clinicians", "/api/v1/clinicians/*", "/api/v1/clinicians/*/rating", "/api/v1/clinicians/*/reviews").permitAll()
+                        .anyRequest().authenticated())
+                .addFilterBefore(new BearerAuthorizationRequestFilter(tokens, accounts, environment), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

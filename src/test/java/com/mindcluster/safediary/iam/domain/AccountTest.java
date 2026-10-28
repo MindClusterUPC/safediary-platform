@@ -44,4 +44,12 @@ class AccountTest {
         assertThat(account.canSignInAt(NOW)).isFalse();
         assertThatThrownBy(() -> account.requestDeletion(NOW)).isInstanceOf(IllegalStateException.class);
     }
+
+    @Test void passwordsCanBeHashedAndMatchedWithBcrypt() {
+        var encoder = new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+        String hash1 = encoder.encode("SafeSanctuary2025#");
+        String hash2 = encoder.encode("PasswordSeguro123*");
+        assertThat(encoder.matches("SafeSanctuary2025#", hash1)).isTrue();
+        assertThat(encoder.matches("PasswordSeguro123*", hash2)).isTrue();
+    }
 }

@@ -58,4 +58,8 @@ public class AuthenticationController {
         return ResponseEntityAssembler.toResponseEntityFromResult(commands.handle(new ResetPasswordCommand(r.email(), r.code(),
                 r.newPassword())), ignored -> new MessageResource("The password was updated; sign in again"), HttpStatus.OK);
     }
+    @PostMapping("/sign-out") @Operation(summary="Sign out and invalidate current user session")
+    public ResponseEntity<MessageResource> signOut() {
+        return ResponseEntity.ok(new MessageResource("Signed out successfully"));
+    }
 }

@@ -1,27 +1,36 @@
 package com.mindcluster.safediary.payments.application.internal.commandservices;
 
+import com.mindcluster.safediary.carescheduling.interfaces.acl.dto.AppointmentPaymentResultDto;
 import com.mindcluster.safediary.payments.application.commandservices.SubscriptionCommandService;
 import com.mindcluster.safediary.payments.application.commandservices.dto.SubscriptionCheckoutResultDto;
 import com.mindcluster.safediary.payments.application.outbound.StripeGatewayClient;
 import com.mindcluster.safediary.payments.application.outbound.dto.StripeCheckoutSession;
 import com.mindcluster.safediary.payments.application.outbound.dto.StripeWebhookEvent;
+import com.mindcluster.safediary.payments.domain.model.aggregates.ConnectedAccount;
+import com.mindcluster.safediary.payments.domain.model.aggregates.PaymentIntent;
 import com.mindcluster.safediary.payments.domain.model.aggregates.Subscription;
 import com.mindcluster.safediary.payments.domain.model.commands.CancelSubscriptionCommand;
 import com.mindcluster.safediary.payments.domain.model.commands.CreateSubscriptionCheckoutCommand;
 import com.mindcluster.safediary.payments.domain.model.commands.ProcessStripeWebhookCommand;
 import com.mindcluster.safediary.payments.domain.model.entities.ProcessedWebhookEvent;
 import com.mindcluster.safediary.payments.domain.model.valueobjects.SubscriptionPlan;
+import com.mindcluster.safediary.payments.domain.repositories.ConnectedAccountRepository;
+import com.mindcluster.safediary.payments.domain.repositories.PaymentIntentRepository;
 import com.mindcluster.safediary.payments.domain.repositories.ProcessedWebhookEventRepository;
 import com.mindcluster.safediary.payments.domain.repositories.SubscriptionRepository;
 import com.mindcluster.safediary.shared.application.result.ApplicationError;
 import com.mindcluster.safediary.shared.application.result.Result;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -32,13 +41,29 @@ public class SubscriptionCommandServiceImpl implements SubscriptionCommandServic
     private final SubscriptionRepository subscriptionRepository;
     private final ProcessedWebhookEventRepository processedWebhookEventRepository;
     private final StripeGatewayClient stripeGatewayClient;
+    private final ConnectedAccountRepository connectedAccountRepository;
+    private final PaymentIntentRepository paymentIntentRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SubscriptionCommandServiceImpl(SubscriptionRepository subscriptionRepository,
                                          ProcessedWebhookEventRepository processedWebhookEventRepository,
                                          StripeGatewayClient stripeGatewayClient) {
+        this(subscriptionRepository, processedWebhookEventRepository, stripeGatewayClient, null, null, null);
+    }
+
+    @Autowired
+    public SubscriptionCommandServiceImpl(SubscriptionRepository subscriptionRepository,
+                                         ProcessedWebhookEventRepository processedWebhookEventRepository,
+                                         StripeGatewayClient stripeGatewayClient,
+                                         @Autowired(required = false) ConnectedAccountRepository connectedAccountRepository,
+                                         @Autowired(required = false) PaymentIntentRepository paymentIntentRepository,
+                                         @Autowired(required = false) ApplicationEventPublisher eventPublisher) {
         this.subscriptionRepository = subscriptionRepository;
         this.processedWebhookEventRepository = processedWebhookEventRepository;
         this.stripeGatewayClient = stripeGatewayClient;
+        this.connectedAccountRepository = connectedAccountRepository;
+        this.paymentIntentRepository = paymentIntentRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -148,15 +173,67 @@ public class SubscriptionCommandServiceImpl implements SubscriptionCommandServic
                     Instant.now()
             ));
 
-            if (event.patientAccountId() != null) {
+            String eventType = event.eventType() != null ? event.eventType() : "";
+
+            // Handle Stripe Connect: account.updated
+            if ("account.updated".equalsIgnoreCase(eventType) && connectedAccountRepository != null) {
+                String stripeAccountId = event.connectedAccountId();
+                if (stripeAccountId != null) {
+                    Optional<ConnectedAccount> optionalAccount = connectedAccountRepository.findByStripeAccountId(stripeAccountId);
+                    if (optionalAccount.isPresent()) {
+                        ConnectedAccount account = optionalAccount.get();
+                        boolean charges = event.chargesEnabled() != null ? event.chargesEnabled() : account.isChargesEnabled();
+                        boolean payouts = event.payoutsEnabled() != null ? event.payoutsEnabled() : account.isPayoutsEnabled();
+                        boolean details = event.detailsSubmitted() != null ? event.detailsSubmitted() : account.isDetailsSubmitted();
+                        account.updateStatus(charges, payouts, details);
+                        connectedAccountRepository.save(account);
+                        log.info("Connected account {} status updated: chargesEnabled={}, payoutsEnabled={}", stripeAccountId, charges, payouts);
+                    }
+                }
+            }
+
+            // Handle Stripe Connect: payout.paid / payout.failed
+            if (eventType.startsWith("payout.")) {
+                String connectedAcct = event.connectedAccountId();
+                log.info("Stripe payout notification: event={}, payoutId={}, account={}, status={}, amount={}{}",
+                        eventType, event.payoutId(), connectedAcct, event.payoutStatus(), event.payoutAmountCents(), event.payoutCurrency());
+            }
+
+            // Handle Consultation payments: checkout.session.completed for type=CONSULTATION
+            if ("checkout.session.completed".equalsIgnoreCase(eventType) && "CONSULTATION".equalsIgnoreCase(event.paymentType())) {
+                if (event.appointmentId() != null) {
+                    log.info("Consultation checkout completed for appointment {}", event.appointmentId());
+                    if (paymentIntentRepository != null) {
+                        String ref = "care-appointment-" + event.appointmentId();
+                        paymentIntentRepository.findByIdempotencyKey(ref).ifPresent(pi -> {
+                            pi.markApproved(event.paymentIntentId());
+                            paymentIntentRepository.save(pi);
+                        });
+                    }
+                    if (eventPublisher != null) {
+                        eventPublisher.publishEvent(new AppointmentPaymentResultDto(
+                                event.appointmentId(),
+                                event.paymentIntentId() != null ? event.paymentIntentId() : ("stripe-session-" + event.eventId()),
+                                BigDecimal.ZERO, // amount handled by gateway hold
+                                "USD",
+                                true
+                        ));
+                    }
+                }
+            }
+
+            // Handle Subscriptions: checkout.session.completed, customer.subscription.updated, customer.subscription.deleted
+            if (event.patientAccountId() != null && !"CONSULTATION".equalsIgnoreCase(event.paymentType())) {
                 Long patientId = event.patientAccountId();
                 Subscription subscription = subscriptionRepository.findByPatientAccountId(patientId)
                         .orElseGet(() -> Subscription.createFree(patientId));
 
-                if ("customer.subscription.deleted".equalsIgnoreCase(event.eventType())) {
+                if ("customer.subscription.deleted".equalsIgnoreCase(eventType)
+                        || ("customer.subscription.updated".equalsIgnoreCase(eventType)
+                        && ("canceled".equalsIgnoreCase(event.subscriptionStatus()) || "unpaid".equalsIgnoreCase(event.subscriptionStatus())))) {
                     subscription.cancel();
                     subscriptionRepository.save(subscription);
-                    log.info("Subscription for patient {} cancelled via webhook.", patientId);
+                    log.info("Subscription for patient {} cancelled via webhook event {}.", patientId, eventType);
                 } else {
                     SubscriptionPlan plan = event.plan() != null ? event.plan() : SubscriptionPlan.TERRA;
                     Instant activeUntil = event.periodEnd();

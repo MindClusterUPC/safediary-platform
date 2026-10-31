@@ -24,10 +24,10 @@ public class StripeWebhookController {
         this.subscriptionCommandService = subscriptionCommandService;
     }
 
-    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(consumes = { MediaType.APPLICATION_JSON_VALUE, "*/*" }, produces = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             summary = "Handle Stripe Webhook Events",
-            description = "Receives signed Stripe webhook notifications (e.g., checkout.session.completed, customer.subscription.deleted), verifies signature cryptographically, and processes event idempotently."
+            description = "Receives signed Stripe webhook notifications (platform subscriptions and Stripe Connect events), verifies signature cryptographically with primary or connect secrets, and processes event idempotently."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Webhook verified and processed successfully"),

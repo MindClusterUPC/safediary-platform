@@ -10,6 +10,7 @@ import com.mindcluster.safediary.payments.interfaces.rest.resources.CheckoutResp
 import com.mindcluster.safediary.payments.interfaces.rest.resources.CreateCheckoutResource;
 import com.mindcluster.safediary.payments.interfaces.rest.resources.SubscriptionResponseResource;
 import com.mindcluster.safediary.payments.interfaces.rest.transform.SubscriptionResourceAssembler;
+import com.mindcluster.safediary.shared.interfaces.rest.resources.MessageResource;
 import com.mindcluster.safediary.shared.interfaces.rest.transform.ResponseEntityAssembler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -114,5 +115,29 @@ public class SubscriptionsController {
                 SubscriptionResourceAssembler::toResource,
                 HttpStatus.OK
         );
+    }
+
+    @GetMapping("/success")
+    @Operation(
+            summary = "Browser return redirect after successful Stripe Checkout",
+            description = "Public landing endpoint reached by user's browser after completing payment on Stripe Checkout."
+    )
+    public ResponseEntity<MessageResource> handleCheckoutSuccess(
+            @RequestParam(value = "session_id", required = false) String sessionId
+    ) {
+        return ResponseEntity.ok(new MessageResource(
+                "Subscription checkout completed successfully. Your subscription will be activated automatically."
+        ));
+    }
+
+    @GetMapping("/cancel")
+    @Operation(
+            summary = "Browser return redirect after cancelled Stripe Checkout",
+            description = "Public landing endpoint reached by user's browser if they cancel during Stripe Checkout."
+    )
+    public ResponseEntity<MessageResource> handleCheckoutCancel() {
+        return ResponseEntity.ok(new MessageResource(
+                "Subscription checkout was cancelled. No charges were made."
+        ));
     }
 }

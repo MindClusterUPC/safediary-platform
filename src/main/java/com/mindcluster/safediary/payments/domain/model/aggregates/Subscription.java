@@ -120,10 +120,14 @@ public class Subscription extends AbstractDomainAggregateRoot<Subscription> {
      * Cancels the subscription. The patient retains access until activeUntil (if set).
      */
     public void cancel() {
+        SubscriptionPlan previousPlan = this.plan;
         this.status = SubscriptionStatus.CANCELLED;
+        this.plan = SubscriptionPlan.FREE;
+        this.activeUntil = null;
+        this.stripeSubscriptionId = null;
         registerDomainEvent(new SubscriptionCancelledEvent(
                 this.patientAccountId,
-                this.plan
+                previousPlan
         ));
     }
 

@@ -34,6 +34,10 @@ public class WebSecurityConfiguration {
             "/docs/**",
             "/docs",
             "/api/v1/payments/webhooks/**",
+            "/api/v1/payments/subscriptions/success",
+            "/api/v1/payments/subscriptions/cancel",
+            "/api/v1/payments/connect/refresh",
+            "/api/v1/payments/connect/return",
             "/api/v1/dev/**",
             "/error",
             "/favicon.ico"

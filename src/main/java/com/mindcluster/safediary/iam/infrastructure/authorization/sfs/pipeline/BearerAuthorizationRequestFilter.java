@@ -38,7 +38,25 @@ public class BearerAuthorizationRequestFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getRequestURI().startsWith(request.getContextPath() + PUBLIC_AUTHENTICATION_PATH);
+        String uri = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        String path = (contextPath != null && !contextPath.isEmpty() && uri.startsWith(contextPath))
+                ? uri.substring(contextPath.length())
+                : uri;
+
+        return path.startsWith(PUBLIC_AUTHENTICATION_PATH)
+                || path.startsWith("/api/v1/payments/webhooks/")
+                || path.equals("/api/v1/payments/subscriptions/success")
+                || path.equals("/api/v1/payments/subscriptions/cancel")
+                || path.equals("/api/v1/payments/connect/refresh")
+                || path.equals("/api/v1/payments/connect/return")
+                || path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs")
+                || path.startsWith("/scalar")
+                || path.startsWith("/docs")
+                || path.startsWith("/api/v1/dev/")
+                || path.equals("/error")
+                || path.equals("/favicon.ico");
     }
 
     @Override

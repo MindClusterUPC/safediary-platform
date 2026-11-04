@@ -28,11 +28,11 @@ public class PatientPersistenceEntity extends AuditableAbstractPersistenceEntity
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
-    @Column(name = "emergency_contact_name", nullable = false, length = 120)
+    @Column(name = "emergency_contact_name", length = 120)
     private String emergencyContactName;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "emergency_contact_relationship", nullable = false, length = 30)
+    @Column(name = "emergency_contact_relationship", length = 30)
     private RelationshipType emergencyContactRelationship;
 
     @Column(name = "emergency_contact_phone", length = 30)

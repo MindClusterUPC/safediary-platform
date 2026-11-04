@@ -14,12 +14,16 @@ public final class PatientPersistenceAssembler {
     public static Patient toDomain(PatientPersistenceEntity entity) {
         if (entity == null) return null;
 
-        EmergencyContact contact = EmergencyContact.of(
-                entity.getEmergencyContactName(),
-                entity.getEmergencyContactRelationship(),
-                entity.getEmergencyContactPhone(),
-                entity.getEmergencyContactEmail()
-        );
+        EmergencyContact contact = null;
+        if (entity.getEmergencyContactName() != null && !entity.getEmergencyContactName().isBlank()
+                && entity.getEmergencyContactRelationship() != null) {
+            contact = EmergencyContact.of(
+                    entity.getEmergencyContactName(),
+                    entity.getEmergencyContactRelationship(),
+                    entity.getEmergencyContactPhone(),
+                    entity.getEmergencyContactEmail()
+            );
+        }
 
         return new Patient(
                 entity.getId(),
@@ -35,11 +39,19 @@ public final class PatientPersistenceAssembler {
         entity.setLastName(domain.getFullName().lastName());
         entity.setEmail(domain.getEmail().value());
         entity.setPasswordHash(domain.getPassword().value());
-        entity.setEmergencyContactName(domain.getEmergencyContact().getName());
-        entity.setEmergencyContactRelationship(domain.getEmergencyContact().getRelationship());
-        entity.setEmergencyContactPhone(domain.getEmergencyContact().getPhoneNumber());
-        entity.setEmergencyContactEmail(
-                domain.getEmergencyContact().getEmail() != null ? domain.getEmergencyContact().getEmail().value() : null
-        );
+
+        if (domain.getEmergencyContact() != null) {
+            entity.setEmergencyContactName(domain.getEmergencyContact().getName());
+            entity.setEmergencyContactRelationship(domain.getEmergencyContact().getRelationship());
+            entity.setEmergencyContactPhone(domain.getEmergencyContact().getPhoneNumber());
+            entity.setEmergencyContactEmail(
+                    domain.getEmergencyContact().getEmail() != null ? domain.getEmergencyContact().getEmail().value() : null
+            );
+        } else {
+            entity.setEmergencyContactName(null);
+            entity.setEmergencyContactRelationship(null);
+            entity.setEmergencyContactPhone(null);
+            entity.setEmergencyContactEmail(null);
+        }
     }
 }

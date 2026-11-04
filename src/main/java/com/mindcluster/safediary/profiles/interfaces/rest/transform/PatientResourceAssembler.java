@@ -16,12 +16,15 @@ public final class PatientResourceAssembler {
         if (patient == null) return null;
 
         var contact = patient.getEmergencyContact();
-        var contactResource = new PatientResponseResource.EmergencyContactResource(
-                contact.getName(),
-                contact.getRelationship(),
-                contact.getPhoneNumber(),
-                contact.getEmail() != null ? contact.getEmail().value() : null
-        );
+        PatientResponseResource.EmergencyContactResource contactResource = null;
+        if (contact != null) {
+            contactResource = new PatientResponseResource.EmergencyContactResource(
+                    contact.getName(),
+                    contact.getRelationship(),
+                    contact.getPhoneNumber(),
+                    contact.getEmail() != null ? contact.getEmail().value() : null
+            );
+        }
 
         PatientResponseResource.PlanStatusResource planResource = null;
         if (planStatusDto != null) {

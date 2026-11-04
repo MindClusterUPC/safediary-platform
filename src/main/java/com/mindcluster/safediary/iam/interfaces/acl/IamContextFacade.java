@@ -14,6 +14,14 @@ public interface IamContextFacade {
 
     Optional<IamAccountDto> fetchAccount(Long accountId);
 
+    Optional<IamAccountDto> fetchAccountByEmail(String email);
+
+    boolean verifyPasswordByEmail(String email, String rawPassword);
+
+    boolean existsAccountByEmail(String email);
+
+    boolean updateAccountEmail(String currentEmail, String newEmail);
+
     /**
      * Checks, at read time, that the patient granted the specialist an active consent covering the scope
      * (DIARY_ENTRIES, MOOD_CHECK_INS or AI_CLINICAL_SUMMARIES) and date. The decision is always audited.

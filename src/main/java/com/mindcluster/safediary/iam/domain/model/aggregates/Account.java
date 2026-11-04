@@ -23,7 +23,7 @@ public class Account extends AbstractDomainAggregateRoot<Account> {
     private static final Pattern PASSWORD_NUMBER_OR_SYMBOL = Pattern.compile(".*[^A-Za-z].*");
 
     private final Long id;
-    private final String email;
+    private String email;
     private String passwordHash;
     private final AccountRole role;
     private AccountStatus status;
@@ -91,6 +91,10 @@ public class Account extends AbstractDomainAggregateRoot<Account> {
         passwordHash = Objects.requireNonNull(newPasswordHash, "Password hash is required");
         failedSignInAttempts = 0;
         lockedUntil = null;
+    }
+
+    public void changeEmail(String newEmail) {
+        this.email = normalizeEmail(newEmail);
     }
 
     public void enableBiometricUnlock() {

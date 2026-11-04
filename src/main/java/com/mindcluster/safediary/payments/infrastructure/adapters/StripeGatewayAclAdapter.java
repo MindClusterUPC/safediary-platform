@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mindcluster.safediary.payments.application.outbound.StripeGatewayClient;
 import com.mindcluster.safediary.payments.application.outbound.dto.StripeCheckoutSession;
+import com.mindcluster.safediary.payments.application.outbound.dto.StripePaymentMethodDto;
 import com.mindcluster.safediary.payments.application.outbound.dto.StripeWebhookEvent;
 import com.mindcluster.safediary.payments.domain.model.valueobjects.SubscriptionPlan;
 import com.mindcluster.safediary.payments.infrastructure.configuration.StripeProperties;
@@ -27,6 +28,8 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -597,6 +600,57 @@ public class StripeGatewayAclAdapter implements StripeGatewayClient {
             throw ex;
         } catch (Exception ex) {
             throw new IllegalArgumentException("Invalid Stripe webhook payload structure: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
+    public List<StripePaymentMethodDto> listCustomerPaymentMethods(String stripeCustomerId) {
+        String apiKey = properties.getApiKey();
+        if (apiKey == null || apiKey.isBlank() || stripeCustomerId == null || stripeCustomerId.isBlank()) {
+            return List.of();
+        }
+
+        try {
+            RequestOptions requestOptions = RequestOptions.builder()
+                    .setApiKey(apiKey)
+                    .build();
+
+            com.stripe.param.PaymentMethodListParams params = com.stripe.param.PaymentMethodListParams.builder()
+                    .setCustomer(stripeCustomerId)
+                    .setType(com.stripe.param.PaymentMethodListParams.Type.CARD)
+                    .build();
+
+            com.stripe.model.PaymentMethodCollection collection = com.stripe.model.PaymentMethod.list(params, requestOptions);
+            List<StripePaymentMethodDto> result = new ArrayList<>();
+            boolean isFirst = true;
+            if (collection != null && collection.getData() != null) {
+                for (com.stripe.model.PaymentMethod pm : collection.getData()) {
+                    var card = pm.getCard();
+                    String brand = card != null && card.getBrand() != null ? card.getBrand().toUpperCase(Locale.ROOT) : "VISA";
+                    String last4 = card != null && card.getLast4() != null ? card.getLast4() : "4242";
+                    String expiry = (card != null && card.getExpMonth() != null && card.getExpYear() != null)
+                            ? String.format("%02d/%s", card.getExpMonth(), String.valueOf(card.getExpYear()).substring(Math.max(0, String.valueOf(card.getExpYear()).length() - 2)))
+                            : "12/28";
+                    String cardholder = pm.getBillingDetails() != null && pm.getBillingDetails().getName() != null
+                            ? pm.getBillingDetails().getName()
+                            : "Billetera SafeDiary";
+
+                    result.add(new StripePaymentMethodDto(
+                            pm.getId(),
+                            brand,
+                            last4,
+                            expiry,
+                            cardholder,
+                            isFirst,
+                            "Billetera SafeDiary Activa"
+                    ));
+                    isFirst = false;
+                }
+            }
+            return result;
+        } catch (Exception ex) {
+            log.warn("Could not list Stripe payment methods for customer {}: {}", stripeCustomerId, ex.getMessage());
+            return List.of();
         }
     }
 

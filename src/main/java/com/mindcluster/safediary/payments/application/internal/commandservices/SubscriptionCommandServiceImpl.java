@@ -250,6 +250,22 @@ public class SubscriptionCommandServiceImpl implements SubscriptionCommandServic
                     );
                     subscriptionRepository.save(subscription);
                     log.info("Subscription for patient {} activated to plan {} until {}.", patientId, plan, activeUntil);
+
+                    if (plan.isPaid() && paymentIntentRepository != null) {
+                        String subIdempotencyKey = "sub-" + (event.stripeSubscriptionId() != null ? event.stripeSubscriptionId() : event.eventId());
+                        if (paymentIntentRepository.findByIdempotencyKey(subIdempotencyKey).isEmpty()) {
+                            PaymentIntent subPayment = new PaymentIntent(
+                                    "SUBSCRIPTION",
+                                    patientId,
+                                    patientId,
+                                    plan.getPrice(),
+                                    plan.getCurrency(),
+                                    subIdempotencyKey
+                            );
+                            subPayment.markApproved(event.stripeSubscriptionId());
+                            paymentIntentRepository.save(subPayment);
+                        }
+                    }
                 }
             }
 

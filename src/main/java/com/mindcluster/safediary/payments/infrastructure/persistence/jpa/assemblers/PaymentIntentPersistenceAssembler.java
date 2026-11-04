@@ -18,7 +18,8 @@ public final class PaymentIntentPersistenceAssembler {
                 entity.getCurrency(),
                 entity.getIdempotencyKey(),
                 entity.getProviderReference(),
-                entity.getStatus()
+                entity.getStatus(),
+                entity.getCreatedAt() != null ? entity.getCreatedAt().toInstant() : null
         );
     }
 

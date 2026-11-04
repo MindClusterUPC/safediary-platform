@@ -6,6 +6,7 @@ import com.mindcluster.safediary.payments.infrastructure.persistence.jpa.assembl
 import com.mindcluster.safediary.payments.infrastructure.persistence.jpa.repositories.PaymentIntentPersistenceRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -30,6 +31,13 @@ public class PaymentIntentRepositoryImpl implements PaymentIntentRepository {
     @Override
     public Optional<PaymentIntent> findByProviderReference(String providerReference) {
         return repository.findByProviderReference(providerReference).map(PaymentIntentPersistenceAssembler::toDomain);
+    }
+
+    @Override
+    public List<PaymentIntent> findByPayerAccountId(Long payerAccountId) {
+        return repository.findByPayerAccountIdOrderByCreatedAtDesc(payerAccountId).stream()
+                .map(PaymentIntentPersistenceAssembler::toDomain)
+                .toList();
     }
 
     @Override

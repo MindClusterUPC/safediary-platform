@@ -4,6 +4,7 @@ import com.mindcluster.safediary.shared.domain.model.aggregates.AbstractDomainAg
 import lombok.Getter;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Objects;
 
 /**
@@ -22,6 +23,7 @@ public class PaymentIntent extends AbstractDomainAggregateRoot<PaymentIntent> {
     private final String idempotencyKey;
     private String providerReference;
     private String status;
+    private Instant createdAt;
 
     public PaymentIntent(Long id,
                          String purpose,
@@ -41,6 +43,23 @@ public class PaymentIntent extends AbstractDomainAggregateRoot<PaymentIntent> {
         this.idempotencyKey = Objects.requireNonNull(idempotencyKey, "idempotencyKey is required");
         this.providerReference = providerReference;
         this.status = Objects.requireNonNullElse(status, "CREATED");
+        this.createdAt = Instant.now();
+    }
+
+    public PaymentIntent(Long id,
+                         String purpose,
+                         Long subjectId,
+                         Long payerAccountId,
+                         BigDecimal amount,
+                         String currency,
+                         String idempotencyKey,
+                         String providerReference,
+                         String status,
+                         Instant createdAt) {
+        this(id, purpose, subjectId, payerAccountId, amount, currency, idempotencyKey, providerReference, status);
+        if (createdAt != null) {
+            this.createdAt = createdAt;
+        }
     }
 
     public PaymentIntent(String purpose,

@@ -9,6 +9,9 @@ import com.mindcluster.safediary.shared.application.result.Result;
 public interface ProfileCommandService {
     Result<Patient, ApplicationError> handle(RegisterPatientCommand command);
     Result<Patient, ApplicationError> handle(UpdateEmergencyContactCommand command);
+    Result<Patient, ApplicationError> handle(UpdatePatientProfileCommand command);
+    Result<Patient, ApplicationError> handle(RemoveEmergencyContactCommand command);
+    Result<Patient, ApplicationError> handle(UpdatePatientEmailCommand command);
     Result<Psychologist, ApplicationError> handle(RegisterPsychologistCommand command);
     Result<Psychologist, ApplicationError> handle(ConfigurePsychologistAvailabilityCommand command);
     Result<Psychologist, ApplicationError> handle(UpdatePsychologistProfileCommand command);

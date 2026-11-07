@@ -97,6 +97,7 @@ class SubscriptionTest {
         sub.cancel();
 
         assertThat(sub.getStatus()).isEqualTo(SubscriptionStatus.CANCELLED);
+        assertThat(sub.getPlan()).isEqualTo(SubscriptionPlan.FREE);
         assertThat(sub.isActive()).isFalse();
         assertThat(sub.domainEvents()).hasAtLeastOneElementOfType(SubscriptionCancelledEvent.class);
     }

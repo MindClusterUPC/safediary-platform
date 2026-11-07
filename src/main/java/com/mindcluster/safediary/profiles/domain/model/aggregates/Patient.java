@@ -26,7 +26,7 @@ public class Patient extends AbstractDomainAggregateRoot<Patient> {
         this.fullName = Objects.requireNonNull(fullName, "fullName is required");
         this.email = Objects.requireNonNull(email, "email is required");
         this.password = Objects.requireNonNull(password, "password is required");
-        this.emergencyContact = Objects.requireNonNull(emergencyContact, "emergencyContact is required");
+        this.emergencyContact = emergencyContact;
     }
 
     public Patient(Long id, FullName fullName, EmailAddress email, PasswordHash password, EmergencyContact emergencyContact) {
@@ -48,5 +48,9 @@ public class Patient extends AbstractDomainAggregateRoot<Patient> {
 
     public void updateEmergencyContact(EmergencyContact newContact) {
         this.emergencyContact = Objects.requireNonNull(newContact, "emergencyContact cannot be null");
+    }
+
+    public void removeEmergencyContact() {
+        this.emergencyContact = null;
     }
 }

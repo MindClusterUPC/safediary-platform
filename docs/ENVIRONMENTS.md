@@ -44,6 +44,9 @@ Todo sale de variables de entorno. El perfil `prod` **no tiene valores por defec
 | `LLM_FALLBACK_MODEL` | no | `render.yaml` | vacío (no repite el mismo modelo) |
 | `LLM_BACKUP_MODEL` | no | por defecto | `qwen/qwen3.8-27b` |
 | `ASSISTANTAI_LLM_PROVIDER` | no | por defecto | `spring-ai` (`mock` para pruebas) |
+| `IAM_JWT_SECRET` | sí | `render.yaml` la genera (secreta) | mínimo 32 caracteres; sin ella `prod` no arranca |
+| `GOOGLE_CLIENT_IDS`, `APPLE_CLIENT_IDS` | no | Render (client IDs de la app) | vacías: el ingreso con Google/Apple queda desactivado |
+| `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD` | no | Render (SMTP) | sin SMTP, el código de recuperación no se envía (en `dev` se muestra en el log) |
 
 ## Variables de ambos entornos
 

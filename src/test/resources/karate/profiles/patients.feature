@@ -2,6 +2,8 @@
 Feature: Gestión y consulta de perfiles de pacientes con contacto de emergencia
 
   Background:
+    * def session = callonce read('classpath:karate/common/sign-up.feature')
+    * configure headers = { Authorization: '#("Bearer " + session.token)' }
     * url baseUrl + '/api/v1/patients'
 
   Scenario: Registrar un nuevo paciente, consultar por ID y actualizar contacto de emergencia

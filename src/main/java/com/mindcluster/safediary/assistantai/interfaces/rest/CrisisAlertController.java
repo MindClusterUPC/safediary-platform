@@ -27,8 +27,10 @@ import java.util.List;
 public class CrisisAlertController {
 
     private final CrisisQueryService crisisQueryService;
+    private final AssistantAccountGuard accountGuard;
 
-    public CrisisAlertController(CrisisQueryService crisisQueryService) {
+    public CrisisAlertController(CrisisQueryService crisisQueryService, AssistantAccountGuard accountGuard) {
+        this.accountGuard = accountGuard;
         this.crisisQueryService = crisisQueryService;
     }
 
@@ -43,6 +45,7 @@ public class CrisisAlertController {
     @GetMapping("/conversation-sessions/{sessionId}/risk-assessments/latest")
     @Operation(summary = "Get the latest risk assessment of a session")
     public ResponseEntity<?> getLatestRiskAssessment(@PathVariable Long sessionId) {
+        accountGuard.requireOwnSession(sessionId);
         return crisisQueryService.handle(new GetCurrentRiskAssessmentQuery(sessionId))
                 .<ResponseEntity<?>>map(assessment -> ResponseEntity.ok(RiskAssessmentResourceFromEntityAssembler.toResource(assessment)))
                 .orElseGet(() -> ErrorResponseAssembler.toErrorResponseFromApplicationError(

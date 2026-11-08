@@ -9,3 +9,4 @@ Feature: Registro de una cuenta de prueba para obtener un token de acceso
     Then status 201
     * def token = response.accessToken
     * def accountId = response.accountId
+    * def email = response.email

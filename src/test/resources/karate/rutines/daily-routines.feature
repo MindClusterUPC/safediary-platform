@@ -2,6 +2,8 @@
 Feature: Administración de rutinas diarias de los pacientes
 
   Background:
+    * def session = callonce read('classpath:karate/common/sign-up.feature')
+    * configure headers = { Authorization: '#("Bearer " + session.token)' }
     * url baseUrl + '/api/v1/daily-routines'
 
   Scenario: Crear una rutina diaria, listar por paciente y alternar estado activo

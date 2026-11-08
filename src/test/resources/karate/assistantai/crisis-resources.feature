@@ -2,6 +2,8 @@
 Feature: Consulta de líneas de emergencia y recursos de crisis para soporte del paciente
 
   Background:
+    * def session = callonce read('classpath:karate/common/sign-up.feature')
+    * configure headers = { Authorization: '#("Bearer " + session.token)' }
     * url baseUrl + '/api/v1/crisis-resources'
 
   Scenario: Obtener los recursos y líneas de atención de crisis de salud mental

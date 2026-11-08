@@ -2,6 +2,7 @@ package com.mindcluster.safediary.rutines.interfaces.rest.controllers;
 
 import com.mindcluster.safediary.rutines.application.commandservices.RoutineCommandService;
 import com.mindcluster.safediary.rutines.application.queryservices.RoutineQueryService;
+import com.mindcluster.safediary.rutines.interfaces.rest.RutinesAccountGuard;
 import com.mindcluster.safediary.rutines.domain.model.commands.CreatePromptReflectionCommand;
 import com.mindcluster.safediary.rutines.domain.model.commands.SubmitDailyReflectionCommand;
 import com.mindcluster.safediary.rutines.domain.model.queries.GetPendingDailyReflectionQuery;
@@ -26,9 +27,12 @@ public class PromptReflectionsController {
 
     private final RoutineCommandService routineCommandService;
     private final RoutineQueryService routineQueryService;
+    private final RutinesAccountGuard accountGuard;
 
     public PromptReflectionsController(RoutineCommandService routineCommandService,
-                                       RoutineQueryService routineQueryService) {
+                                       RoutineQueryService routineQueryService,
+                                       RutinesAccountGuard accountGuard) {
+        this.accountGuard = accountGuard;
         this.routineCommandService = routineCommandService;
         this.routineQueryService = routineQueryService;
     }
@@ -36,8 +40,9 @@ public class PromptReflectionsController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Create/assign a daily prompt reflection for a patient")
     public ResponseEntity<?> createPromptReflection(@Valid @RequestBody CreatePromptReflectionResource resource) {
+        var ownerId = accountGuard.requireOwnPatient(resource.patientId());
         var command = new CreatePromptReflectionCommand(
-                resource.patientId(),
+                ownerId,
                 resource.promptText()
         );
         var result = routineCommandService.handle(command);
@@ -51,6 +56,7 @@ public class PromptReflectionsController {
     @GetMapping("/{id}")
     @Operation(summary = "Get a prompt reflection by ID")
     public ResponseEntity<PromptReflectionResponseResource> getReflectionById(@PathVariable Long id) {
+        accountGuard.requireOwnReflection(id);
         return routineQueryService.handle(new GetPromptReflectionByIdQuery(id))
                 .map(PromptReflectionResourceAssembler::toResource)
                 .map(ResponseEntity::ok)
@@ -59,7 +65,8 @@ public class PromptReflectionsController {
 
     @GetMapping("/patient/{patientId}/pending")
     @Operation(summary = "Get the pending daily reflection for a patient")
-    public ResponseEntity<PromptReflectionResponseResource> getPendingReflection(@PathVariable Long patientId) {
+    public ResponseEntity<PromptReflectionResponseResource> getPendingReflection(@PathVariable("patientId") Long requestedPatientId) {
+        var patientId = accountGuard.requireOwnPatient(requestedPatientId);
         return routineQueryService.handle(new GetPendingDailyReflectionQuery(patientId))
                 .map(PromptReflectionResourceAssembler::toResource)
                 .map(ResponseEntity::ok)
@@ -70,6 +77,7 @@ public class PromptReflectionsController {
     @Operation(summary = "Submit an answer for a pending prompt reflection")
     public ResponseEntity<?> submitReflection(@PathVariable Long id,
                                                @Valid @RequestBody SubmitDailyReflectionResource resource) {
+        accountGuard.requireOwnReflection(id);
         var command = new SubmitDailyReflectionCommand(
                 id,
                 resource.answer()

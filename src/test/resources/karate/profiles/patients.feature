@@ -1,38 +1,24 @@
-# User Story: US-006 - Registro de Pacientes y Contactos de Emergencia
-Feature: Gestión y consulta de perfiles de pacientes con contacto de emergencia
+# User Story: US-006 - Edición del perfil del paciente y contacto de emergencia
+Feature: Perfil del paciente autenticado y su contacto de emergencia
 
   Background:
     * def session = callonce read('classpath:karate/common/sign-up.feature')
     * configure headers = { Authorization: '#("Bearer " + session.token)' }
     * url baseUrl + '/api/v1/patients'
 
-  Scenario: Registrar un nuevo paciente, consultar por ID y actualizar contacto de emergencia
-    # 1. Crear nuevo paciente (201)
-    Given request
-    """
-    {
-      "firstName": "Carlos",
-      "lastName": "Mendoza",
-      "email": "carlos.mendoza.bdd@example.com",
-      "password": "Password123*",
-      "emergencyContactName": "Maria Mendoza",
-      "emergencyContactRelationship": "PARENT",
-      "emergencyContactPhone": "+51987654321",
-      "emergencyContactEmail": "maria.bdd@example.com"
-    }
-    """
-    When method post
-    Then status 201
-    And match response.id == '#number'
-    And match response.email == 'carlos.mendoza.bdd@example.com'
+  Scenario: Consultar el propio perfil y actualizar el contacto de emergencia
+    # 1. El registro en IAM crea el perfil del paciente (200)
+    Given path 'me'
+    When method get
+    Then status 200
+    And match response.email == session.email
     * def patientId = response.id
 
-    # 2. Consultar paciente por ID (200)
+    # 2. Consultar el perfil por ID (200)
     Given path patientId
     When method get
     Then status 200
     And match response.id == patientId
-    And match response.firstName == 'Carlos'
 
     # 3. Actualizar contacto de emergencia (200)
     Given path patientId, 'emergency-contact'
@@ -49,6 +35,21 @@ Feature: Gestión y consulta de perfiles de pacientes con contacto de emergencia
     Then status 200
     And match response.emergencyContact.name == 'Ana Gomez'
     And match response.emergencyContact.relationship == 'SPOUSE'
+
+  Scenario: Otra cuenta no puede leer el perfil de un paciente
+    Given path 'me'
+    When method get
+    Then status 200
+    * def patientId = response.id
+    * def other = call read('classpath:karate/common/sign-up.feature')
+    * configure headers = { Authorization: '#("Bearer " + other.token)' }
+    Given path patientId
+    When method get
+    Then status 403
+
+  Scenario: No se puede listar a todos los pacientes
+    When method get
+    Then status 403
 
   Scenario: Consultar un paciente inexistente retorna estado 404
     Given path 999999

@@ -5,7 +5,9 @@ import com.mindcluster.safediary.profiles.domain.model.aggregates.Patient;
 import com.mindcluster.safediary.profiles.domain.model.aggregates.Psychologist;
 import com.mindcluster.safediary.profiles.domain.model.queries.GetAllPatientsQuery;
 import com.mindcluster.safediary.profiles.domain.model.queries.GetAllPsychologistsQuery;
+import com.mindcluster.safediary.profiles.domain.model.queries.GetPatientByEmailQuery;
 import com.mindcluster.safediary.profiles.domain.model.queries.GetPatientByIdQuery;
+import com.mindcluster.safediary.profiles.domain.model.valueobjects.EmailAddress;
 import com.mindcluster.safediary.profiles.domain.model.queries.GetPsychologistByIdQuery;
 import com.mindcluster.safediary.profiles.domain.repositories.PatientRepository;
 import com.mindcluster.safediary.profiles.domain.repositories.PsychologistRepository;
@@ -31,6 +33,12 @@ public class ProfileQueryServiceImpl implements ProfileQueryService {
     @Transactional(readOnly = true)
     public Optional<Patient> handle(GetPatientByIdQuery query) {
         return patientRepository.findById(query.id());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Patient> handle(GetPatientByEmailQuery query) {
+        return patientRepository.findByEmail(EmailAddress.of(query.email()));
     }
 
     @Override

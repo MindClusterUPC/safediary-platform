@@ -5,7 +5,6 @@ import com.mindcluster.safediary.payments.interfaces.acl.PaymentsContextFacade;
 import com.mindcluster.safediary.profiles.application.commandservices.ProfileCommandService;
 import com.mindcluster.safediary.profiles.application.queryservices.ProfileQueryService;
 import com.mindcluster.safediary.profiles.domain.model.commands.*;
-import com.mindcluster.safediary.profiles.domain.model.queries.GetAllPatientsQuery;
 import com.mindcluster.safediary.profiles.domain.model.queries.GetPatientByIdQuery;
 import com.mindcluster.safediary.profiles.interfaces.rest.resources.*;
 import com.mindcluster.safediary.profiles.interfaces.rest.transform.PatientResourceAssembler;
@@ -16,6 +15,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.mindcluster.safediary.profiles.domain.model.queries.GetPatientByEmailQuery;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -55,6 +57,34 @@ public class PatientsController {
         return null;
     }
 
+    /** Rejects a patient profile that does not belong to the signed-in account (matched by e-mail). */
+    private void requireOwnPatient(Long patientId) {
+        var account = iamContextFacade.fetchAuthenticatedAccount()
+                .orElseThrow(() -> new AuthenticationCredentialsNotFoundException("Sign in to access a patient profile"));
+        profileQueryService.handle(new GetPatientByIdQuery(patientId))
+                .filter(patient -> !patient.getEmail().value().equalsIgnoreCase(account.email()))
+                .ifPresent(patient -> {
+                    throw new AccessDeniedException("The patient profile does not belong to the signed-in user");
+                });
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Get the patient profile of the signed-in account")
+    public ResponseEntity<?> getCurrentPatient() {
+        var roleCheck = checkPatientRole();
+        if (roleCheck != null) return roleCheck;
+
+        var account = iamContextFacade.fetchAuthenticatedAccount()
+                .orElseThrow(() -> new AuthenticationCredentialsNotFoundException("Sign in to access your profile"));
+        return profileQueryService.handle(new GetPatientByEmailQuery(account.email()))
+                .map(patient -> {
+                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
+                    return PatientResourceAssembler.toResource(patient, planStatus);
+                })
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Register a new patient profile with emergency contact")
     public ResponseEntity<?> registerPatient(@Valid @RequestBody RegisterPatientResource resource) {
@@ -84,6 +114,7 @@ public class PatientsController {
     public ResponseEntity<?> getPatientById(@PathVariable Long id) {
         var roleCheck = checkPatientRole();
         if (roleCheck != null) return roleCheck;
+        requireOwnPatient(id);
 
         return profileQueryService.handle(new GetPatientByIdQuery(id))
                 .map(patient -> {
@@ -95,18 +126,10 @@ public class PatientsController {
     }
 
     @GetMapping
-    @Operation(summary = "List all registered patients")
+    @Operation(summary = "Not allowed: patient profiles are private; use /api/v1/patients/me")
     public ResponseEntity<?> getAllPatients() {
-        var roleCheck = checkPatientRole();
-        if (roleCheck != null) return roleCheck;
-
-        var patients = profileQueryService.handle(new GetAllPatientsQuery()).stream()
-                .map(patient -> {
-                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
-                    return PatientResourceAssembler.toResource(patient, planStatus);
-                })
-                .toList();
-        return ResponseEntity.ok(patients);
+        // Patient profiles are private health data, so no account may list every patient.
+        throw new AccessDeniedException("Listing every patient is not allowed; use /api/v1/patients/me");
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -115,6 +138,7 @@ public class PatientsController {
                                                  @Valid @RequestBody UpdatePatientProfileResource resource) {
         var roleCheck = checkPatientRole();
         if (roleCheck != null) return roleCheck;
+        requireOwnPatient(id);
 
         var command = new UpdatePatientProfileCommand(
                 id,
@@ -137,6 +161,7 @@ public class PatientsController {
     public ResponseEntity<?> removeEmergencyContact(@PathVariable Long id) {
         var roleCheck = checkPatientRole();
         if (roleCheck != null) return roleCheck;
+        requireOwnPatient(id);
 
         var command = new RemoveEmergencyContactCommand(id);
         var result = profileCommandService.handle(command);
@@ -156,6 +181,7 @@ public class PatientsController {
                                                @Valid @RequestBody UpdatePatientEmailResource resource) {
         var roleCheck = checkPatientRole();
         if (roleCheck != null) return roleCheck;
+        requireOwnPatient(id);
 
         var command = new UpdatePatientEmailCommand(
                 id,
@@ -179,6 +205,7 @@ public class PatientsController {
                                                    @Valid @RequestBody UpdateEmergencyContactResource resource) {
         var roleCheck = checkPatientRole();
         if (roleCheck != null) return roleCheck;
+        requireOwnPatient(id);
 
         var command = new UpdateEmergencyContactCommand(
                 id,

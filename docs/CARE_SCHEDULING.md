@@ -41,7 +41,7 @@ Reglas principales:
 | Care Scheduling → Clinician Directory | Published Language | Evento `CompletedCareSessionDto`, consumido por `CareSessionEventConsumer`. |
 | Care Scheduling ↔ Payments & Payouts | Customer/Supplier + Published Language | Care Scheduling publica `AppointmentChargeRequestedDto` y `AppointmentRefundRequestedDto`; Payments responde con `AppointmentPaymentResultDto` (lo consume `PaymentResultEventConsumer`) o llama a `CareSchedulingContextFacade`. |
 | AssistantAI → Care Scheduling | Customer/Supplier + ACL | `AssistantAiEmotionalSummaryClient` lee solo el último resumen semanal. |
-| IAM → Care Scheduling | OHS + ACL | Puerto `IamClient` (identidad y consentimiento), con un adaptador de desarrollo hasta que exista IAM. |
+| IAM → Care Scheduling | OHS + ACL | `IamContextClient` implementa el puerto `IamClient` con `IamContextFacade`: la identidad sale de la cuenta autenticada con el token y el consentimiento del resumen (`AI_CLINICAL_SUMMARIES`) se valida en IAM al leerlo, auditado contra la cita. |
 
 **Pendiente en Payments & Payouts:** hoy solo cobra suscripciones. Para cobrar citas debe consumir
 `AppointmentChargeRequestedDto` (la `idempotencyKey` es estable por reserva), crear el cobro y publicar
@@ -51,11 +51,12 @@ un endpoint que simula ese resultado.
 ## Arrancar en desarrollo
 
 Igual que en [CLINICIAN_DIRECTORY.md](CLINICIAN_DIRECTORY.md): PostgreSQL local y `.\mvnw.cmd spring-boot:run`.
-En el perfil `dev` quedan activos estos adaptadores temporales, que en `prod` se rechazan:
+La identidad sale siempre del token de IAM (`Authorization: Bearer ...`). En el perfil `dev` quedan además
+estas ayudas, que en `prod` se rechazan:
 
 | Propiedad | Uso |
 |---|---|
-| `care-scheduling.demo-identity.enabled` | Headers `X-Account-Id` y `X-Role` (`PATIENT` o `PSYCHOLOGIST`); `X-Consent-Ref` como consentimiento vigente para el resumen. |
+| `care-scheduling.demo-identity.enabled` | Sin token, headers `X-Account-Id` y `X-Role` (`PATIENT` o `PSYCHOLOGIST`) para probar en Swagger. El consentimiento del resumen se valida siempre en IAM. |
 | `care-scheduling.payment-simulation.enabled` | `POST /api/v1/dev/care-scheduling/appointments/{id}/payment-result`. |
 
 El psicólogo usa su `accountId`; Care Scheduling resuelve su ficha en Clinician Directory.
@@ -108,7 +109,6 @@ las cancelaciones con y sin reembolso.
 
 ## Antes de producción
 
-- Reemplazar `DevelopmentIamClient` por IAM.
 - Implementar en Payments & Payouts el cobro de citas (ver arriba) y retirar el simulador.
 - `ConfigurableVideoProviderAdapter` usa nombres de sala imposibles de adivinar bajo
   `care-scheduling.video.base-url`; conviene un proveedor con tokens por participante.

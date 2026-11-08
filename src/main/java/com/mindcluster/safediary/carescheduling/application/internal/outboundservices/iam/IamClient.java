@@ -7,6 +7,9 @@ import java.util.Optional;
 public interface IamClient {
     CareActor currentActor();
 
-    /** Returns the reference of the active consent to share an emotional summary, or empty when there is none. */
-    Optional<String> findActiveSummaryConsent(Long patientAccountId, Long clinicianAccountId);
+    /**
+     * Returns the reference of the active consent to share an emotional summary, or empty when there is none.
+     * IAM audits the decision against the appointment that requested the summary.
+     */
+    Optional<String> findActiveSummaryConsent(Long patientAccountId, Long clinicianAccountId, Long appointmentId);
 }

@@ -303,7 +303,7 @@ public class CareSchedulingCommandServiceImpl implements CareSchedulingCommandSe
             var appointment = lockedAppointment(c.appointmentId(), psychologist);
             if (appointment.getStatus() != AppointmentStatus.CONFIRMED && appointment.getStatus() != AppointmentStatus.COMPLETED)
                 throw rule("authorized-summary", "Summaries are only available for confirmed appointments");
-            var consentRef = iam.findActiveSummaryConsent(appointment.getPatientAccountId(), psychologist.accountId())
+            var consentRef = iam.findActiveSummaryConsent(appointment.getPatientAccountId(), psychologist.accountId(), appointment.getId())
                     .orElseThrow(() -> forbidden("The patient has not granted an active consent to share an emotional summary"));
             var summary = summaries.fetchLatestSummary(appointment.getPatientAccountId())
                     .orElseThrow(() -> missing("EmotionalSummary", appointment.getId()));

@@ -9,6 +9,7 @@ import com.mindcluster.safediary.shared.interfaces.rest.transform.ErrorResponseA
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.mindcluster.safediary.payments.interfaces.rest.PaymentsAccountGuard;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,10 +22,13 @@ import java.util.List;
 public class PatientPaymentsController {
 
     private final PatientPaymentsQueryService patientPaymentsQueryService;
+    private final PaymentsAccountGuard accountGuard;
     private final IamContextFacade iamContextFacade;
 
     public PatientPaymentsController(PatientPaymentsQueryService patientPaymentsQueryService,
-                                     @Autowired(required = false) IamContextFacade iamContextFacade) {
+                                     @Autowired(required = false) IamContextFacade iamContextFacade,
+                                     PaymentsAccountGuard accountGuard) {
+        this.accountGuard = accountGuard;
         this.patientPaymentsQueryService = patientPaymentsQueryService;
         this.iamContextFacade = iamContextFacade;
     }
@@ -43,7 +47,8 @@ public class PatientPaymentsController {
 
     @GetMapping("/history")
     @Operation(summary = "Get transaction history for a patient", description = "Returns historical list of payments and charges made by the patient (consultations, subscriptions).")
-    public ResponseEntity<?> getTransactionHistory(@RequestParam Long patientAccountId) {
+    public ResponseEntity<?> getTransactionHistory(@RequestParam(name = "patientAccountId", required = false) Long requestedAccountId) {
+        Long patientAccountId = accountGuard.requireOwnAccount(requestedAccountId);
         var roleCheck = checkPatientRole();
         if (roleCheck != null) return roleCheck;
 
@@ -59,7 +64,8 @@ public class PatientPaymentsController {
 
     @GetMapping("/methods")
     @Operation(summary = "Get saved payment methods for a patient", description = "Returns saved cards and payment methods in Stripe / digital wallet for the patient.")
-    public ResponseEntity<?> getPaymentMethods(@RequestParam Long patientAccountId) {
+    public ResponseEntity<?> getPaymentMethods(@RequestParam(name = "patientAccountId", required = false) Long requestedAccountId) {
+        Long patientAccountId = accountGuard.requireOwnAccount(requestedAccountId);
         var roleCheck = checkPatientRole();
         if (roleCheck != null) return roleCheck;
 

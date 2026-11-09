@@ -2,6 +2,7 @@ package com.mindcluster.safediary.rutines.interfaces.rest.controllers;
 
 import com.mindcluster.safediary.rutines.application.commandservices.RoutineCommandService;
 import com.mindcluster.safediary.rutines.application.queryservices.RoutineQueryService;
+import com.mindcluster.safediary.rutines.interfaces.rest.RutinesAccountGuard;
 import com.mindcluster.safediary.rutines.domain.model.commands.CreateDailyRoutineCommand;
 import com.mindcluster.safediary.rutines.domain.model.commands.ToggleDailyRoutineActiveCommand;
 import com.mindcluster.safediary.rutines.domain.model.commands.ToggleRoutineNotificationCommand;
@@ -31,9 +32,12 @@ public class DailyRoutinesController {
 
     private final RoutineCommandService routineCommandService;
     private final RoutineQueryService routineQueryService;
+    private final RutinesAccountGuard accountGuard;
 
     public DailyRoutinesController(RoutineCommandService routineCommandService,
-                                   RoutineQueryService routineQueryService) {
+                                   RoutineQueryService routineQueryService,
+                                   RutinesAccountGuard accountGuard) {
+        this.accountGuard = accountGuard;
         this.routineCommandService = routineCommandService;
         this.routineQueryService = routineQueryService;
     }
@@ -41,8 +45,9 @@ public class DailyRoutinesController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Create a new daily routine for a patient")
     public ResponseEntity<?> createDailyRoutine(@Valid @RequestBody CreateDailyRoutineResource resource) {
+        var ownerId = accountGuard.requireOwnPatient(resource.patientId());
         var command = new CreateDailyRoutineCommand(
-                resource.patientId(),
+                ownerId,
                 resource.title(),
                 resource.frequencyDays(),
                 resource.isNotificationActive()
@@ -58,6 +63,7 @@ public class DailyRoutinesController {
     @GetMapping("/{id}")
     @Operation(summary = "Get daily routine by ID")
     public ResponseEntity<DailyRoutineResponseResource> getDailyRoutineById(@PathVariable Long id) {
+        accountGuard.requireOwnRoutine(id);
         return routineQueryService.handle(new GetDailyRoutineByIdQuery(id))
                 .map(DailyRoutineResourceAssembler::toResource)
                 .map(ResponseEntity::ok)
@@ -66,7 +72,8 @@ public class DailyRoutinesController {
 
     @GetMapping("/patient/{patientId}")
     @Operation(summary = "List all routines for a specific patient")
-    public ResponseEntity<List<DailyRoutineResponseResource>> getAllRoutinesByPatientId(@PathVariable Long patientId) {
+    public ResponseEntity<List<DailyRoutineResponseResource>> getAllRoutinesByPatientId(@PathVariable("patientId") Long requestedPatientId) {
+        var patientId = accountGuard.requireOwnPatient(requestedPatientId);
         var routines = routineQueryService.handle(new GetAllRoutinesByUserIdQuery(patientId)).stream()
                 .map(DailyRoutineResourceAssembler::toResource)
                 .toList();
@@ -77,6 +84,7 @@ public class DailyRoutinesController {
     @Operation(summary = "Update an existing daily routine")
     public ResponseEntity<?> updateDailyRoutine(@PathVariable Long id,
                                                 @Valid @RequestBody UpdateDailyRoutineResource resource) {
+        accountGuard.requireOwnRoutine(id);
         var command = new UpdateDailyRoutineCommand(
                 id,
                 resource.title(),
@@ -94,6 +102,7 @@ public class DailyRoutinesController {
     @Operation(summary = "Toggle notification status for a daily routine")
     public ResponseEntity<?> toggleRoutineNotification(@PathVariable Long id,
                                                        @Valid @RequestBody ToggleRoutineNotificationResource resource) {
+        accountGuard.requireOwnRoutine(id);
         var command = new ToggleRoutineNotificationCommand(
                 id,
                 resource.isEnabled()
@@ -109,6 +118,7 @@ public class DailyRoutinesController {
     @PatchMapping("/{id}/toggle-active")
     @Operation(summary = "Toggle active status for a daily routine")
     public ResponseEntity<?> toggleRoutineActive(@PathVariable Long id) {
+        accountGuard.requireOwnRoutine(id);
         var command = new ToggleDailyRoutineActiveCommand(id);
         var result = routineCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(

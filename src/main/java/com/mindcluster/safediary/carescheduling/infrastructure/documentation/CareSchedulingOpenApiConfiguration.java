@@ -15,13 +15,9 @@ public class CareSchedulingOpenApiConfiguration {
             var type = handler.getBeanType();
             if (type.getPackageName().equals(CONTROLLERS) && !type.getSimpleName().equals("DevelopmentPaymentSimulationController")) {
                 operation.addParametersItem(new Parameter().name("X-Account-Id").in("header")
-                        .description("Development identity only; requires dev profile").schema(new StringSchema()).example("1"));
+                        .description("Development identity, only in the dev profile when no bearer token is sent").schema(new StringSchema()).example("1"));
                 operation.addParametersItem(new Parameter().name("X-Role").in("header")
                         .description("Development role: PATIENT or PSYCHOLOGIST").schema(new StringSchema()).example("PATIENT"));
-            }
-            if (type.getSimpleName().equals("AuthorizedSummaryController")) {
-                operation.addParametersItem(new Parameter().name("X-Consent-Ref").in("header")
-                        .description("Development consent reference until IAM consents exist").schema(new StringSchema()).example("CONSENT-1"));
             }
             return operation;
         };

@@ -2,6 +2,7 @@ package com.mindcluster.safediary.rutines.interfaces.rest.controllers;
 
 import com.mindcluster.safediary.rutines.application.commandservices.RoutineCommandService;
 import com.mindcluster.safediary.rutines.application.queryservices.RoutineQueryService;
+import com.mindcluster.safediary.rutines.interfaces.rest.RutinesAccountGuard;
 import com.mindcluster.safediary.rutines.domain.model.commands.AdvanceSosStepCommand;
 import com.mindcluster.safediary.rutines.domain.model.commands.CompleteSosExerciseCommand;
 import com.mindcluster.safediary.rutines.domain.model.commands.StartSosExerciseCommand;
@@ -28,9 +29,12 @@ public class SosExercisesController {
 
     private final RoutineCommandService routineCommandService;
     private final RoutineQueryService routineQueryService;
+    private final RutinesAccountGuard accountGuard;
 
     public SosExercisesController(RoutineCommandService routineCommandService,
-                                  RoutineQueryService routineQueryService) {
+                                  RoutineQueryService routineQueryService,
+                                  RutinesAccountGuard accountGuard) {
+        this.accountGuard = accountGuard;
         this.routineCommandService = routineCommandService;
         this.routineQueryService = routineQueryService;
     }
@@ -38,8 +42,9 @@ public class SosExercisesController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Start a new SOS exercise for a patient")
     public ResponseEntity<?> startSosExercise(@Valid @RequestBody StartSosExerciseResource resource) {
+        var ownerId = accountGuard.requireOwnPatient(resource.patientId());
         var command = new StartSosExerciseCommand(
-                resource.patientId(),
+                ownerId,
                 resource.exerciseType(),
                 resource.totalSteps()
         );
@@ -54,6 +59,7 @@ public class SosExercisesController {
     @GetMapping("/{id}")
     @Operation(summary = "Get SOS exercise state by ID")
     public ResponseEntity<SosExerciseResponseResource> getSosExerciseById(@PathVariable Long id) {
+        accountGuard.requireOwnSosExercise(id);
         return routineQueryService.handle(new GetSosExerciseByIdQuery(id))
                 .map(SosExerciseResourceAssembler::toResource)
                 .map(ResponseEntity::ok)
@@ -62,7 +68,8 @@ public class SosExercisesController {
 
     @GetMapping("/patient/{patientId}")
     @Operation(summary = "Get the history of SOS exercises for a specific patient")
-    public ResponseEntity<List<SosExerciseResponseResource>> getSosExerciseHistory(@PathVariable Long patientId) {
+    public ResponseEntity<List<SosExerciseResponseResource>> getSosExerciseHistory(@PathVariable("patientId") Long requestedPatientId) {
+        var patientId = accountGuard.requireOwnPatient(requestedPatientId);
         var exercises = routineQueryService.handle(new GetSosExerciseHistoryByPatientIdQuery(patientId)).stream()
                 .map(SosExerciseResourceAssembler::toResource)
                 .toList();
@@ -72,6 +79,7 @@ public class SosExercisesController {
     @PatchMapping("/{id}/advance")
     @Operation(summary = "Advance the current step of an active SOS exercise")
     public ResponseEntity<?> advanceSosStep(@PathVariable Long id) {
+        accountGuard.requireOwnSosExercise(id);
         var command = new AdvanceSosStepCommand(id);
         var result = routineCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
@@ -84,6 +92,7 @@ public class SosExercisesController {
     @PatchMapping("/{id}/complete")
     @Operation(summary = "Mark an SOS exercise as completed")
     public ResponseEntity<?> completeSosExercise(@PathVariable Long id) {
+        accountGuard.requireOwnSosExercise(id);
         var command = new CompleteSosExerciseCommand(id);
         var result = routineCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(

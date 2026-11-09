@@ -6,6 +6,8 @@ import org.jspecify.annotations.NullMarked;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -63,6 +65,28 @@ public class GlobalExceptionHandler {
                 ex.getMessage() != null ? ex.getMessage() : resolveMessageOrDefault("validation.request.failed", "Request validation failed")
         );
         return ErrorResponseAssembler.toErrorResponseFromApplicationError(applicationError);
+    }
+
+    /**
+     * Handles a request for a resource that belongs to another account.
+     *
+     * @param ex the access denied exception
+     * @return error response with FORBIDDEN status
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<?> handleAccessDeniedException(AccessDeniedException ex) {
+        return ErrorResponseAssembler.toErrorResponseFromApplicationError(ApplicationError.forbidden(ex.getMessage()));
+    }
+
+    /**
+     * Handles a request that needs the authenticated account but carries no valid access token.
+     *
+     * @param ex the missing credentials exception
+     * @return error response with UNAUTHORIZED status
+     */
+    @ExceptionHandler(AuthenticationCredentialsNotFoundException.class)
+    public ResponseEntity<?> handleMissingCredentials(AuthenticationCredentialsNotFoundException ex) {
+        return ErrorResponseAssembler.toErrorResponseFromApplicationError(ApplicationError.unauthorized(ex.getMessage()));
     }
 
     /**

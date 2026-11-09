@@ -2,6 +2,8 @@
 Feature: Administración de rutinas diarias de los pacientes
 
   Background:
+    * def session = callonce read('classpath:karate/common/sign-up.feature')
+    * configure headers = { Authorization: '#("Bearer " + session.token)' }
     * url baseUrl + '/api/v1/daily-routines'
 
   Scenario: Crear una rutina diaria, listar por paciente y alternar estado activo
@@ -9,7 +11,7 @@ Feature: Administración de rutinas diarias de los pacientes
     Given request
     """
     {
-      "patientId": 101,
+      "patientId": #(session.accountId),
       "title": "Meditacion y respiracion matutina",
       "frequencyDays": ["MONDAY", "WEDNESDAY", "FRIDAY"],
       "isNotificationActive": true
@@ -23,7 +25,7 @@ Feature: Administración de rutinas diarias de los pacientes
     * def routineId = response.id
 
     # 2. Listar rutinas por paciente (200)
-    Given path 'patient', 101
+    Given path 'patient', session.accountId
     When method get
     Then status 200
     And match response == '#[1]'
@@ -48,3 +50,17 @@ Feature: Administración de rutinas diarias de los pacientes
     """
     When method post
     Then status 400
+
+  Scenario: Otra cuenta no puede ver ni modificar las rutinas de un paciente
+    Given request { patientId: '#(session.accountId)', title: 'Pausa privada', frequencyDays: ['MONDAY'], isNotificationActive: false }
+    When method post
+    Then status 201
+    * def routineId = response.id
+    * def other = call read('classpath:karate/common/sign-up.feature')
+    * configure headers = { Authorization: '#("Bearer " + other.token)' }
+    Given path 'patient', session.accountId
+    When method get
+    Then status 403
+    Given path routineId, 'toggle-active'
+    When method patch
+    Then status 403

@@ -18,6 +18,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -41,21 +43,18 @@ public class DiaryEntriesController {
         this.iamContextFacade = iamContextFacade;
     }
 
+    /**
+     * Diary entries are private: they always belong to the account of the bearer token. A patient id sent by the
+     * client is only accepted when it is that same account.
+     */
     private Long resolvePatientAccountId(HttpServletRequest request, Long payloadPatientId) {
-        if (payloadPatientId != null && payloadPatientId > 0) {
-            return payloadPatientId;
-        }
-        return iamContextFacade.fetchAuthenticatedAccount()
+        Long accountId = iamContextFacade.fetchAuthenticatedAccount()
                 .map(acc -> acc.accountId())
-                .orElseGet(() -> {
-                    String header = request.getHeader("X-Account-Id");
-                    if (header != null && !header.isBlank()) {
-                        try {
-                            return Long.parseLong(header.trim());
-                        } catch (NumberFormatException ignored) {}
-                    }
-                    return 1L;
-                });
+                .orElseThrow(() -> new AuthenticationCredentialsNotFoundException("Sign in to use your diary"));
+        if (payloadPatientId != null && payloadPatientId > 0 && !payloadPatientId.equals(accountId)) {
+            throw new AccessDeniedException("The diary does not belong to the signed-in user");
+        }
+        return accountId;
     }
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -91,8 +90,10 @@ public class DiaryEntriesController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get a diary entry by ID")
-    public ResponseEntity<DiaryEntryResponseResource> getEntryById(@PathVariable Long id) {
+    public ResponseEntity<DiaryEntryResponseResource> getEntryById(@PathVariable Long id, HttpServletRequest request) {
+        Long patientId = resolvePatientAccountId(request, null);
         return queryService.handle(new GetDiaryEntryByIdQuery(id))
+                .filter(entry -> entry.getPatientId().equals(patientId))
                 .map(DiaryEntryResourceAssembler::toResource)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());

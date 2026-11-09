@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import com.mindcluster.safediary.payments.interfaces.rest.PaymentsAccountGuard;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,9 +32,12 @@ public class SubscriptionsController {
 
     private final SubscriptionCommandService subscriptionCommandService;
     private final SubscriptionQueryService subscriptionQueryService;
+    private final PaymentsAccountGuard accountGuard;
 
     public SubscriptionsController(SubscriptionCommandService subscriptionCommandService,
-                                   SubscriptionQueryService subscriptionQueryService) {
+                                   SubscriptionQueryService subscriptionQueryService,
+                                   PaymentsAccountGuard accountGuard) {
+        this.accountGuard = accountGuard;
         this.subscriptionCommandService = subscriptionCommandService;
         this.subscriptionQueryService = subscriptionQueryService;
     }
@@ -54,7 +58,7 @@ public class SubscriptionsController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKeyHeader
     ) {
         var command = new CreateSubscriptionCheckoutCommand(
-                resource.patientAccountId(),
+                accountGuard.requireOwnAccount(resource.patientAccountId()),
                 resource.plan(),
                 resource.successUrl(),
                 resource.cancelUrl(),
@@ -83,7 +87,7 @@ public class SubscriptionsController {
             @RequestParam(value = "patientAccountId", required = false) Long patientAccountIdParam,
             @RequestHeader(value = "X-Patient-Account-Id", required = false) Long patientAccountHeader
     ) {
-        Long effectiveId = patientAccountIdParam != null ? patientAccountIdParam : patientAccountHeader;
+        Long effectiveId = accountGuard.requireOwnAccount(patientAccountIdParam != null ? patientAccountIdParam : patientAccountHeader);
         if (effectiveId == null || effectiveId <= 0) {
             return ResponseEntity.badRequest().body("patientAccountId must be provided via query param or X-Patient-Account-Id header");
         }
@@ -108,7 +112,7 @@ public class SubscriptionsController {
             @ApiResponse(responseCode = "404", description = "Subscription not found")
     })
     public ResponseEntity<?> cancelSubscription(@Valid @RequestBody CancelSubscriptionResource resource) {
-        var command = new CancelSubscriptionCommand(resource.patientAccountId());
+        var command = new CancelSubscriptionCommand(accountGuard.requireOwnAccount(resource.patientAccountId()));
         var result = subscriptionCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,

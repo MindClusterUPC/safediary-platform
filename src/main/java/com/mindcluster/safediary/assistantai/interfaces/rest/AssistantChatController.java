@@ -25,7 +25,6 @@ import com.mindcluster.safediary.shared.interfaces.rest.transform.ResponseEntity
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +36,7 @@ import java.util.List;
 /**
  * Chat endpoints with the contract used by SafeDiary-Mobile (RetrofitAssistantResponder).
  * <p>
- * Until IAM exists, every request is attributed to the configured demo account.
+ * Every request is attributed to the account of the bearer token, so each account only sees its own conversations.
  * </p>
  */
 @RestController
@@ -48,22 +47,22 @@ public class AssistantChatController {
     private final ConversationCommandService conversationCommandService;
     private final ConversationQueryService conversationQueryService;
     private final CrisisQueryService crisisQueryService;
-    private final Long demoAccountId;
+    private final AssistantAccountGuard accountGuard;
 
     public AssistantChatController(ConversationCommandService conversationCommandService,
                                    ConversationQueryService conversationQueryService,
                                    CrisisQueryService crisisQueryService,
-                                   @Value("${assistantai.demo-account-id:1}") Long demoAccountId) {
+                                   AssistantAccountGuard accountGuard) {
         this.conversationCommandService = conversationCommandService;
         this.conversationQueryService = conversationQueryService;
         this.crisisQueryService = crisisQueryService;
-        this.demoAccountId = demoAccountId;
+        this.accountGuard = accountGuard;
     }
 
     @PostMapping("/chat")
     @Operation(summary = "Send a prompt; without conversationId a new conversation is started")
     public ResponseEntity<?> chat(@Valid @RequestBody AssistantChatRequestResource resource) {
-        var command = new SendChatPromptCommand(demoAccountId, resource.conversationId(), resource.prompt(),
+        var command = new SendChatPromptCommand(accountGuard.currentAccountId(), resource.conversationId(), resource.prompt(),
                 resource.locale(), PersonalityTone.fromName(resource.personality()).orElse(null));
         var result = conversationCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(result,
@@ -73,7 +72,7 @@ public class AssistantChatController {
     @GetMapping("/conversations")
     @Operation(summary = "List the conversations of the current account, most recent activity first")
     public ResponseEntity<List<AssistantConversationSummaryResource>> listConversations() {
-        var conversations = conversationQueryService.handle(new GetSessionHistoryByAccountQuery(demoAccountId)).stream()
+        var conversations = conversationQueryService.handle(new GetSessionHistoryByAccountQuery(accountGuard.currentAccountId())).stream()
                 .filter(session -> !session.getMessages().isEmpty())
                 .sorted(Comparator.comparing(AssistantConversationResourceFromEntityAssembler::lastActivityOf).reversed())
                 .map(AssistantConversationResourceFromEntityAssembler::toSummaryResource)
@@ -85,7 +84,7 @@ public class AssistantChatController {
     @Operation(summary = "Open a conversation of the current account with all its messages")
     public ResponseEntity<?> getConversation(@PathVariable Long conversationId) {
         return conversationQueryService.handle(new GetConversationSessionByIdQuery(conversationId))
-                .filter(session -> session.getAccountId().equals(demoAccountId))
+                .filter(session -> session.getAccountId().equals(accountGuard.currentAccountId()))
                 .<ResponseEntity<?>>map(session -> ResponseEntity.ok(AssistantConversationResourceFromEntityAssembler
                         .toResource(session, crisisQueryService.getCrisisHotlines())))
                 .orElseGet(() -> ErrorResponseAssembler.toErrorResponseFromApplicationError(
@@ -97,7 +96,7 @@ public class AssistantChatController {
     public ResponseEntity<?> renameConversation(@PathVariable Long conversationId,
                                                 @RequestBody(required = false) RenameConversationResource resource) {
         var title = resource != null ? resource.title() : null;
-        var command = new RenameConversationCommand(demoAccountId, conversationId, title);
+        var command = new RenameConversationCommand(accountGuard.currentAccountId(), conversationId, title);
         var result = conversationCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(result,
                 AssistantConversationResourceFromEntityAssembler::toSummaryResource, HttpStatus.OK);
@@ -106,7 +105,7 @@ public class AssistantChatController {
     @DeleteMapping("/conversations/{conversationId}")
     @Operation(summary = "Delete a conversation and all its messages and risk assessments")
     public ResponseEntity<?> deleteConversation(@PathVariable Long conversationId) {
-        var command = new DeleteConversationCommand(demoAccountId, conversationId);
+        var command = new DeleteConversationCommand(accountGuard.currentAccountId(), conversationId);
         var result = conversationCommandService.handle(command);
         return switch (result) {
             case Result.Success<Void, ApplicationError> ignored -> ResponseEntity.noContent().build();
@@ -120,7 +119,7 @@ public class AssistantChatController {
     public ResponseEntity<?> editMessage(@PathVariable Long conversationId,
                                          @PathVariable Long messageId,
                                          @Valid @RequestBody EditChatMessageResource resource) {
-        var command = new EditUserMessageCommand(demoAccountId, conversationId, messageId,
+        var command = new EditUserMessageCommand(accountGuard.currentAccountId(), conversationId, messageId,
                 resource.prompt(), resource.locale(),
                 PersonalityTone.fromName(resource.personality()).orElse(null));
         var result = conversationCommandService.handle(command);
@@ -134,7 +133,7 @@ public class AssistantChatController {
                                         @RequestBody(required = false) RegenerateChatMessageResource resource) {
         var locale = resource != null ? resource.locale() : null;
         var personality = resource != null ? resource.personality() : null;
-        var command = new RegenerateLastResponseCommand(demoAccountId, conversationId, locale,
+        var command = new RegenerateLastResponseCommand(accountGuard.currentAccountId(), conversationId, locale,
                 PersonalityTone.fromName(personality).orElse(null));
         var result = conversationCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(result,

@@ -15,6 +15,8 @@ import com.mindcluster.safediary.rutines.domain.repositories.SosExerciseReposito
 import com.mindcluster.safediary.shared.application.result.ApplicationError;
 import com.mindcluster.safediary.shared.application.result.Result;
 import org.springframework.stereotype.Service;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -41,6 +43,7 @@ public class RoutineCommandServiceImpl implements RoutineCommandService {
                     NotificationStatus.ENABLED : NotificationStatus.DISABLED;
 
             var routine = new DailyRoutine(command.patientId(), titleVo, command.frequencyDays(), notificationStatusVo);
+            routine.updateDetails(command.details());
             var saved = dailyRoutineRepository.save(routine);
             return Result.success(saved);
         } catch (IllegalArgumentException ex) {
@@ -66,6 +69,8 @@ public class RoutineCommandServiceImpl implements RoutineCommandService {
 
             routine.updateTitle(newTitle);
             routine.changeNotificationStatus(newStatus);
+            if (command.frequencyDays() != null) routine.updateFrequency(command.frequencyDays());
+            if (command.details() != null) routine.updateDetails(command.details());
 
             var saved = dailyRoutineRepository.save(routine);
             return Result.success(saved);
@@ -97,6 +102,24 @@ public class RoutineCommandServiceImpl implements RoutineCommandService {
         } catch (Exception ex) {
             return Result.failure(ApplicationError.unexpected("daily-routine-toggle", ex.getMessage()));
         }
+    }
+
+    @Override
+    @Transactional
+    public Result<Void, ApplicationError> handle(DeleteDailyRoutineCommand command) {
+        var routine = dailyRoutineRepository.findById(command.routineId());
+        if (routine.isEmpty()) return Result.failure(ApplicationError.notFound("DailyRoutine", command.routineId().toString()));
+        dailyRoutineRepository.delete(routine.get());
+        return Result.success(null);
+    }
+
+    @Override
+    @Transactional
+    public Result<DailyRoutine, ApplicationError> handle(CompleteDailyRoutineCommand command) {
+        var routine = dailyRoutineRepository.findById(command.routineId());
+        if (routine.isEmpty()) return Result.failure(ApplicationError.notFound("DailyRoutine", command.routineId().toString()));
+        routine.get().markCompleted(LocalDate.now(ZoneId.of("America/Lima")));
+        return Result.success(dailyRoutineRepository.save(routine.get()));
     }
 
     @Override

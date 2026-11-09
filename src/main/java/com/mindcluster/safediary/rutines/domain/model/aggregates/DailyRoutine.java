@@ -1,5 +1,8 @@
 package com.mindcluster.safediary.rutines.domain.model.aggregates;
 
+import com.mindcluster.safediary.rutines.domain.model.valueobjects.RoutineDetails;
+import java.time.LocalDate;
+
 import com.mindcluster.safediary.rutines.domain.model.entities.RoutineReminder;
 import com.mindcluster.safediary.rutines.domain.model.events.DailyRoutineCreatedEvent;
 import com.mindcluster.safediary.rutines.domain.model.valueobjects.FrequencyDays;
@@ -25,6 +28,20 @@ public class DailyRoutine extends AbstractDomainAggregateRoot<DailyRoutine> {
     private Set<FrequencyDays> frequency;
     private NotificationStatus notificationStatus;
     private boolean isActive;
+    private RoutineDetails details =
+            new RoutineDetails(null, null, null, null);
+    private LocalDate completedOn;
+
+    public void updateDetails(RoutineDetails details) {
+        this.details = Objects.requireNonNull(details);
+    }
+
+    public void updateFrequency(Set<FrequencyDays> days) {
+        if (days == null || days.isEmpty()) throw new IllegalArgumentException("Select at least one day");
+        this.frequency = Set.copyOf(days);
+    }
+
+    public void markCompleted(LocalDate day) { this.completedOn = day; }
 
     private List<RoutineReminder> reminders = new ArrayList<>();
 

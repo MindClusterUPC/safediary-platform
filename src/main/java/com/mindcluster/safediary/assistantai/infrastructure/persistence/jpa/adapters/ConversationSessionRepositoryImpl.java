@@ -38,13 +38,15 @@ public class ConversationSessionRepositoryImpl implements ConversationSessionRep
     @Override
     @Transactional(readOnly = true)
     public Optional<ConversationSession> findById(Long id) {
-        return persistenceRepository.findById(id).map(ConversationSessionPersistenceAssembler::toDomainFromPersistence);
+        return persistenceRepository.findById(id).filter(ConversationSessionPersistenceEntity::isOwnerVerified)
+                .map(ConversationSessionPersistenceAssembler::toDomainFromPersistence);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<ConversationSession> findActiveByAccountId(Long accountId) {
         return persistenceRepository.findFirstByAccountIdAndStatusInOrderByStartedAtDesc(accountId, OPEN_STATUSES)
+                .filter(ConversationSessionPersistenceEntity::isOwnerVerified)
                 .map(ConversationSessionPersistenceAssembler::toDomainFromPersistence);
     }
 
@@ -52,6 +54,7 @@ public class ConversationSessionRepositoryImpl implements ConversationSessionRep
     @Transactional(readOnly = true)
     public List<ConversationSession> findAllByAccountId(Long accountId) {
         return persistenceRepository.findAllByAccountIdOrderByStartedAtDesc(accountId).stream()
+                .filter(ConversationSessionPersistenceEntity::isOwnerVerified)
                 .map(ConversationSessionPersistenceAssembler::toDomainFromPersistence)
                 .toList();
     }
@@ -60,6 +63,7 @@ public class ConversationSessionRepositoryImpl implements ConversationSessionRep
     @Transactional(readOnly = true)
     public List<ConversationSession> findAllByAccountIdOverlapping(Long accountId, Instant from, Instant to) {
         return persistenceRepository.findOverlapping(accountId, from, to).stream()
+                .filter(ConversationSessionPersistenceEntity::isOwnerVerified)
                 .map(ConversationSessionPersistenceAssembler::toDomainFromPersistence)
                 .toList();
     }
@@ -79,6 +83,7 @@ public class ConversationSessionRepositoryImpl implements ConversationSessionRep
                 : persistenceRepository.findById(session.getId())
                     .orElseThrow(() -> new IllegalStateException("conversation session not found: " + session.getId()));
         entity.setAccountId(session.getAccountId());
+        if (isNew) entity.setOwnerVerified(true);
         entity.setTitle(session.getTitle());
         entity.setStartedAt(session.getStartedAt());
         entity.setEndedAt(session.getEndedAt());

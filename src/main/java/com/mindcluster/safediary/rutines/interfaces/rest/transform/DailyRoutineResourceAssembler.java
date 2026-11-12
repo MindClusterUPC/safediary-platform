@@ -22,7 +22,9 @@ public final class DailyRoutineResourceAssembler {
                 routine.getTitle().value(),
                 frequencyDays,
                 routine.getNotificationStatus().name(),
-                routine.isActive()
+                routine.isActive(),
+                routine.getDetails().description(), routine.getDetails().time(),
+                routine.getDetails().minutes(), routine.getDetails().kind(), routine.getCompletedOn()
         );
     }
 }

@@ -1,5 +1,7 @@
 package com.mindcluster.safediary.rutines.infrastructure.persistence.jpa.entities;
 
+import java.time.LocalDate;
+
 import com.mindcluster.safediary.rutines.domain.model.valueobjects.FrequencyDays;
 import com.mindcluster.safediary.rutines.domain.model.valueobjects.NotificationStatus;
 import com.mindcluster.safediary.shared.infrastructure.persistence.jpa.entities.AuditableAbstractPersistenceEntity;
@@ -23,6 +25,13 @@ public class DailyRoutinePersistenceEntity extends AuditableAbstractPersistenceE
 
     @Column(name = "title", nullable = false, length = 60)
     private String title;
+
+    @Column(length = 1000)
+    private String description;
+    private String scheduledTime;
+    private Integer durationMinutes;
+    private String exerciseKind;
+    private LocalDate completedOn;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(

@@ -8,6 +8,8 @@ import com.mindcluster.safediary.shared.application.result.ApplicationError;
 import com.mindcluster.safediary.shared.application.result.Result;
 
 public interface RoutineCommandService {
+    Result<Void, ApplicationError> handle(DeleteDailyRoutineCommand command);
+    Result<DailyRoutine, ApplicationError> handle(CompleteDailyRoutineCommand command);
     Result<DailyRoutine, ApplicationError> handle(CreateDailyRoutineCommand command);
     Result<DailyRoutine, ApplicationError> handle(UpdateDailyRoutineCommand command);
     Result<DailyRoutine, ApplicationError> handle(ToggleRoutineNotificationCommand command);

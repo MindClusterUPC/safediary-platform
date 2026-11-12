@@ -25,6 +25,10 @@ public class ConversationSessionPersistenceEntity extends AuditableAbstractPersi
     @Column(nullable = false)
     private Long accountId;
 
+    // Existing shared-demo rows default to false and stay preserved but inaccessible.
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean ownerVerified;
+
     @Column(length = 80)
     private String title;
 

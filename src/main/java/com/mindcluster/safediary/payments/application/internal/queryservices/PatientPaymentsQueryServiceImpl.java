@@ -19,7 +19,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -52,6 +54,12 @@ public class PatientPaymentsQueryServiceImpl implements PatientPaymentsQueryServ
         boolean hasSubscriptionIntent = false;
 
         for (PaymentIntent pi : intents) {
+            if (!"APPROVED".equalsIgnoreCase(pi.getStatus())) {
+                continue;
+            }
+            String currency = pi.getCurrency() != null ? pi.getCurrency().toUpperCase(Locale.ROOT) : "USD";
+            String formattedAmount = formatNegativeAmount(pi.getAmount(), currency);
+
             if ("SUBSCRIPTION".equalsIgnoreCase(pi.getPurpose())) {
                 hasSubscriptionIntent = true;
                 String planName = pi.getAmount().compareTo(new BigDecimal("50")) > 0 ? "Astrum" : "Terra";
@@ -60,22 +68,27 @@ public class PatientPaymentsQueryServiceImpl implements PatientPaymentsQueryServ
                         "Membresía SafeDiary " + planName,
                         "Suscripción " + ("Astrum".equals(planName) ? "anual • Plan Astrum" : "mensual • Plan Terra"),
                         pi.getAmount(),
-                        "-$" + pi.getAmount().setScale(2, RoundingMode.HALF_UP),
-                        pi.getCurrency() != null ? pi.getCurrency() : "USD",
+                        formattedAmount,
+                        currency,
                         "Recibo #SD-" + String.format("%05d", pi.getId()) + " • Pagado ✓",
                         "SUBSCRIPTION",
                         null,
                         pi.getCreatedAt() != null ? pi.getCreatedAt() : Instant.now()
                 ));
             } else {
+                boolean skippedOnce = "SKIPPED_ONCE".equalsIgnoreCase(pi.getProviderReference());
+                String badge = skippedOnce ? "Pago omitido (Demo)" : "Verificado ✓";
+                String description = skippedOnce
+                        ? "Pago omitido solo por esta vez • Cita #" + pi.getSubjectId()
+                        : "Sesión terapéutica • Cita #" + pi.getSubjectId();
                 result.add(new PaymentHistoryItemResource(
                         "pay_" + pi.getId(),
                         "Sesión Terapéutica Profesional",
-                        "Sesión TCC de 50 min • Cita #" + pi.getSubjectId(),
+                        description,
                         pi.getAmount(),
-                        "-$" + pi.getAmount().setScale(2, RoundingMode.HALF_UP),
-                        pi.getCurrency() != null ? pi.getCurrency() : "USD",
-                        "Factura #SD-" + String.format("%05d", pi.getId()) + " • " + ("APPROVED".equalsIgnoreCase(pi.getStatus()) ? "Verificado ✓" : "Pendiente"),
+                        formattedAmount,
+                        currency,
+                        "Factura #SD-" + String.format("%05d", pi.getId()) + " • " + badge,
                         "CONSULTATION",
                         "ST",
                         pi.getCreatedAt() != null ? pi.getCreatedAt() : Instant.now()
@@ -94,7 +107,7 @@ public class PatientPaymentsQueryServiceImpl implements PatientPaymentsQueryServ
                         "Membresía SafeDiary " + plan.getDisplayName(),
                         "Suscripción " + (plan == SubscriptionPlan.ASTRUM ? "anual • Plan Astrum" : "mensual • Plan Terra"),
                         plan.getPrice(),
-                        "-$" + plan.getPrice().setScale(2, RoundingMode.HALF_UP),
+                        formatNegativeAmount(plan.getPrice(), plan.getCurrency()),
                         plan.getCurrency(),
                         "Recibo #SD-" + String.format("%05d", sub.getId()) + " • Pagado ✓",
                         "SUBSCRIPTION",
@@ -104,7 +117,13 @@ public class PatientPaymentsQueryServiceImpl implements PatientPaymentsQueryServ
             }
         }
 
+        result.sort(Comparator.comparing(PaymentHistoryItemResource::createdAt).reversed());
         return result;
+    }
+
+    private static String formatNegativeAmount(BigDecimal amount, String currency) {
+        String prefix = "PEN".equalsIgnoreCase(currency) ? "-S/ " : "-$";
+        return prefix + amount.setScale(2, RoundingMode.HALF_UP);
     }
 
     @Override

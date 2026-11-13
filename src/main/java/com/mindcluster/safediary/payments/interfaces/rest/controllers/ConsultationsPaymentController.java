@@ -2,9 +2,11 @@ package com.mindcluster.safediary.payments.interfaces.rest.controllers;
 
 import com.mindcluster.safediary.payments.application.commandservices.ConsultationPaymentCommandService;
 import com.mindcluster.safediary.payments.domain.model.commands.CreateConsultationCheckoutCommand;
+import com.mindcluster.safediary.payments.domain.model.commands.SkipConsultationPaymentCommand;
 import com.mindcluster.safediary.payments.interfaces.rest.PaymentsAccountGuard;
 import com.mindcluster.safediary.payments.interfaces.rest.resources.ConsultationCheckoutResponseResource;
 import com.mindcluster.safediary.payments.interfaces.rest.resources.CreateConsultationCheckoutResource;
+import com.mindcluster.safediary.payments.interfaces.rest.resources.SkipConsultationPaymentResponseResource;
 import com.mindcluster.safediary.shared.interfaces.rest.transform.ResponseEntityAssembler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -64,6 +66,36 @@ public class ConsultationsPaymentController {
                         dto.currency(),
                         dto.checkoutUrl(),
                         dto.sessionId()
+                ),
+                HttpStatus.OK
+        );
+    }
+
+    @PostMapping(value = "/{appointmentId}/skip")
+    @Operation(
+            summary = "Skip consultation payment once to confirm held appointment",
+            description = "Fallback for academic/demo verification when Stripe Checkout or webhooks cannot process: confirms the held appointment on Care Scheduling and records a SKIPPED_ONCE payment intent."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Appointment confirmed without charging",
+                    content = @Content(schema = @Schema(implementation = SkipConsultationPaymentResponseResource.class))),
+            @ApiResponse(responseCode = "409", description = "Hold expired or appointment cannot be confirmed"),
+            @ApiResponse(responseCode = "422", description = "No active held reservation waiting for payment")
+    })
+    public ResponseEntity<?> skipConsultationPayment(@PathVariable Long appointmentId) {
+        Long patientAccountId = accountGuard.requireOwnAccountWithRole(null, "PATIENT");
+        var result = consultationPaymentCommandService.handle(
+                new SkipConsultationPaymentCommand(patientAccountId, appointmentId)
+        );
+        return ResponseEntityAssembler.toResponseEntityFromResult(
+                result,
+                dto -> new SkipConsultationPaymentResponseResource(
+                        dto.appointmentId(),
+                        dto.patientAccountId(),
+                        dto.appointmentStatus(),
+                        dto.amount(),
+                        dto.currency(),
+                        dto.reference()
                 ),
                 HttpStatus.OK
         );

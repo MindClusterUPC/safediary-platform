@@ -26,6 +26,17 @@ public interface StripeGatewayClient {
             String idempotencyKey
     );
 
+    default StripeCheckoutSession createSubscriptionCheckoutSession(
+            Long patientAccountId,
+            SubscriptionPlan plan,
+            String successUrl,
+            String cancelUrl,
+            String idempotencyKey,
+            String stripeCustomerId
+    ) {
+        return createSubscriptionCheckoutSession(patientAccountId, plan, successUrl, cancelUrl, idempotencyKey);
+    }
+
     /**
      * Cancels an active remote Stripe subscription.
      */
@@ -65,6 +76,54 @@ public interface StripeGatewayClient {
             String cancelUrl,
             String idempotencyKey
     );
+
+    default StripeCheckoutSession createConsultationCheckoutSession(
+            Long patientAccountId,
+            Long psychologistAccountId,
+            String destinationStripeAccountId,
+            BigDecimal totalAmount,
+            BigDecimal applicationFeeAmount,
+            String currency,
+            Long appointmentId,
+            String successUrl,
+            String cancelUrl,
+            String idempotencyKey,
+            String stripeCustomerId
+    ) {
+        return createConsultationCheckoutSession(
+                patientAccountId,
+                psychologistAccountId,
+                destinationStripeAccountId,
+                totalAmount,
+                applicationFeeAmount,
+                currency,
+                appointmentId,
+                successUrl,
+                cancelUrl,
+                idempotencyKey
+        );
+    }
+
+    /**
+     * Creates a Stripe Customer for a patient account so saved payment methods can be attached and reused.
+     */
+    String createCustomer(Long patientAccountId, String email);
+
+    /**
+     * Creates a Stripe Checkout Session in SETUP mode to save a card or digital wallet without charging.
+     */
+    StripeCheckoutSession createPaymentMethodSetupSession(
+            Long patientAccountId,
+            String stripeCustomerId,
+            String successUrl,
+            String cancelUrl,
+            String idempotencyKey
+    );
+
+    /**
+     * Marks a saved payment method as the default payment method for a Stripe Customer.
+     */
+    void setDefaultCustomerPaymentMethod(String stripeCustomerId, String paymentMethodId);
 
     /**
      * Retrieves saved card payment methods for a customer in Stripe.

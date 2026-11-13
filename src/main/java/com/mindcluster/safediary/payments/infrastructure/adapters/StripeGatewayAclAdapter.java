@@ -11,6 +11,7 @@ import com.mindcluster.safediary.payments.infrastructure.configuration.StripePro
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Account;
 import com.stripe.model.AccountLink;
+import com.stripe.model.Customer;
 import com.stripe.model.Event;
 import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.Payout;
@@ -20,6 +21,8 @@ import com.stripe.net.RequestOptions;
 import com.stripe.net.Webhook;
 import com.stripe.param.AccountCreateParams;
 import com.stripe.param.AccountLinkCreateParams;
+import com.stripe.param.CustomerCreateParams;
+import com.stripe.param.CustomerUpdateParams;
 import com.stripe.param.checkout.SessionCreateParams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +57,17 @@ public class StripeGatewayAclAdapter implements StripeGatewayClient {
             String successUrl,
             String cancelUrl,
             String idempotencyKey) {
+        return createSubscriptionCheckoutSession(patientAccountId, plan, successUrl, cancelUrl, idempotencyKey, null);
+    }
+
+    @Override
+    public StripeCheckoutSession createSubscriptionCheckoutSession(
+            Long patientAccountId,
+            SubscriptionPlan plan,
+            String successUrl,
+            String cancelUrl,
+            String idempotencyKey,
+            String stripeCustomerId) {
 
         String effectiveSuccessUrl = (successUrl != null && !successUrl.isBlank())
                 ? successUrl
@@ -89,6 +103,10 @@ public class StripeGatewayAclAdapter implements StripeGatewayClient {
                     .putMetadata("patientAccountId", String.valueOf(patientAccountId))
                     .putMetadata("plan", plan.name())
                     .setSubscriptionData(subscriptionData);
+
+            if (isRealStripeCustomer(stripeCustomerId)) {
+                paramsBuilder.setCustomer(stripeCustomerId);
+            }
 
             String priceId = resolvePriceId(plan);
             if (priceId != null && !priceId.isBlank()) {
@@ -253,6 +271,34 @@ public class StripeGatewayAclAdapter implements StripeGatewayClient {
             String successUrl,
             String cancelUrl,
             String idempotencyKey) {
+        return createConsultationCheckoutSession(
+                patientAccountId,
+                psychologistAccountId,
+                destinationStripeAccountId,
+                totalAmount,
+                applicationFeeAmount,
+                currency,
+                appointmentId,
+                successUrl,
+                cancelUrl,
+                idempotencyKey,
+                null
+        );
+    }
+
+    @Override
+    public StripeCheckoutSession createConsultationCheckoutSession(
+            Long patientAccountId,
+            Long psychologistAccountId,
+            String destinationStripeAccountId,
+            BigDecimal totalAmount,
+            BigDecimal applicationFeeAmount,
+            String currency,
+            Long appointmentId,
+            String successUrl,
+            String cancelUrl,
+            String idempotencyKey,
+            String stripeCustomerId) {
 
         String apiKey = properties.getApiKey();
         if (apiKey == null || apiKey.isBlank()) {
@@ -328,6 +374,9 @@ public class StripeGatewayAclAdapter implements StripeGatewayClient {
 
             if (appointmentId != null) {
                 paramsBuilder.putMetadata("appointmentId", String.valueOf(appointmentId));
+            }
+            if (isRealStripeCustomer(stripeCustomerId)) {
+                paramsBuilder.setCustomer(stripeCustomerId);
             }
 
             RequestOptions requestOptions = RequestOptions.builder()
@@ -604,9 +653,124 @@ public class StripeGatewayAclAdapter implements StripeGatewayClient {
     }
 
     @Override
+    public String createCustomer(Long patientAccountId, String email) {
+        String apiKey = properties.getApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("Stripe API key not configured. Simulating Stripe customer for patient {}", patientAccountId);
+            return "cus_simulated_" + patientAccountId;
+        }
+
+        try {
+            RequestOptions requestOptions = RequestOptions.builder()
+                    .setApiKey(apiKey)
+                    .build();
+
+            CustomerCreateParams.Builder paramsBuilder = CustomerCreateParams.builder()
+                    .putMetadata("patientAccountId", String.valueOf(patientAccountId))
+                    .putMetadata("userId", String.valueOf(patientAccountId));
+
+            if (email != null && !email.isBlank()) {
+                paramsBuilder.setEmail(email.trim());
+            }
+
+            Customer customer = Customer.create(paramsBuilder.build(), requestOptions);
+            log.info("Created Stripe customer {} for patient {}", customer.getId(), patientAccountId);
+            return customer.getId();
+        } catch (Exception ex) {
+            log.error("Failed to create Stripe customer for patient {}", patientAccountId, ex);
+            throw new IllegalStateException("Could not create Stripe customer: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
+    public StripeCheckoutSession createPaymentMethodSetupSession(
+            Long patientAccountId,
+            String stripeCustomerId,
+            String successUrl,
+            String cancelUrl,
+            String idempotencyKey) {
+
+        String effectiveSuccessUrl = (successUrl != null && !successUrl.isBlank())
+                ? successUrl
+                : properties.getSuccessUrl();
+
+        String effectiveCancelUrl = (cancelUrl != null && !cancelUrl.isBlank())
+                ? cancelUrl
+                : properties.getCancelUrl();
+
+        String apiKey = properties.getApiKey();
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("Stripe API key not configured. Generating simulated setup session for patient {}", patientAccountId);
+            String simulatedSessionId = "cs_test_setup_" + UUID.randomUUID().toString().replace("-", "");
+            String simulatedUrl = "https://checkout.stripe.com/c/pay/" + simulatedSessionId;
+            return new StripeCheckoutSession(simulatedSessionId, simulatedUrl);
+        }
+
+        try {
+            SessionCreateParams.SetupIntentData setupIntentData = SessionCreateParams.SetupIntentData.builder()
+                    .putMetadata("patientAccountId", String.valueOf(patientAccountId))
+                    .putMetadata("type", "PAYMENT_METHOD_SETUP")
+                    .build();
+
+            SessionCreateParams.Builder paramsBuilder = SessionCreateParams.builder()
+                    .setMode(SessionCreateParams.Mode.SETUP)
+                    .setSuccessUrl(effectiveSuccessUrl)
+                    .setCancelUrl(effectiveCancelUrl)
+                    .setClientReferenceId(String.valueOf(patientAccountId))
+                    .setSetupIntentData(setupIntentData)
+                    .putMetadata("patientAccountId", String.valueOf(patientAccountId))
+                    .putMetadata("type", "PAYMENT_METHOD_SETUP");
+
+            if (isRealStripeCustomer(stripeCustomerId)) {
+                paramsBuilder.setCustomer(stripeCustomerId);
+            }
+
+            RequestOptions requestOptions = RequestOptions.builder()
+                    .setApiKey(apiKey)
+                    .setIdempotencyKey(idempotencyKey)
+                    .build();
+
+            Session session = Session.create(paramsBuilder.build(), requestOptions);
+            return new StripeCheckoutSession(session.getId(), session.getUrl());
+        } catch (Exception ex) {
+            log.error("Failed to create Stripe setup session for patient {}", patientAccountId, ex);
+            throw new IllegalStateException("Error communicating with Stripe for payment method setup: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
+    public void setDefaultCustomerPaymentMethod(String stripeCustomerId, String paymentMethodId) {
+        String apiKey = properties.getApiKey();
+        if (apiKey == null || apiKey.isBlank() || !isRealStripeCustomer(stripeCustomerId)
+                || paymentMethodId == null || paymentMethodId.isBlank()) {
+            return;
+        }
+
+        try {
+            RequestOptions requestOptions = RequestOptions.builder()
+                    .setApiKey(apiKey)
+                    .build();
+
+            Customer customer = Customer.retrieve(stripeCustomerId, requestOptions);
+            CustomerUpdateParams params = CustomerUpdateParams.builder()
+                    .setInvoiceSettings(
+                            CustomerUpdateParams.InvoiceSettings.builder()
+                                    .setDefaultPaymentMethod(paymentMethodId)
+                                    .build()
+                    )
+                    .build();
+            customer.update(params, requestOptions);
+            log.info("Set default Stripe payment method {} for customer {}", paymentMethodId, stripeCustomerId);
+        } catch (Exception ex) {
+            log.error("Could not set default payment method {} for customer {}", paymentMethodId, stripeCustomerId, ex);
+            throw new IllegalStateException("Could not update default payment method in Stripe: " + ex.getMessage(), ex);
+        }
+    }
+
+    @Override
     public List<StripePaymentMethodDto> listCustomerPaymentMethods(String stripeCustomerId) {
         String apiKey = properties.getApiKey();
-        if (apiKey == null || apiKey.isBlank() || stripeCustomerId == null || stripeCustomerId.isBlank()) {
+        if (apiKey == null || apiKey.isBlank() || !isRealStripeCustomer(stripeCustomerId)) {
             return List.of();
         }
 
@@ -615,43 +779,67 @@ public class StripeGatewayAclAdapter implements StripeGatewayClient {
                     .setApiKey(apiKey)
                     .build();
 
+            String defaultPaymentMethodId = null;
+            try {
+                Customer customer = Customer.retrieve(stripeCustomerId, requestOptions);
+                if (customer != null && customer.getInvoiceSettings() != null) {
+                    defaultPaymentMethodId = customer.getInvoiceSettings().getDefaultPaymentMethod();
+                }
+            } catch (Exception ex) {
+                log.debug("Could not retrieve invoice settings for customer {}: {}", stripeCustomerId, ex.getMessage());
+            }
+
             com.stripe.param.PaymentMethodListParams params = com.stripe.param.PaymentMethodListParams.builder()
                     .setCustomer(stripeCustomerId)
                     .setType(com.stripe.param.PaymentMethodListParams.Type.CARD)
                     .build();
 
             com.stripe.model.PaymentMethodCollection collection = com.stripe.model.PaymentMethod.list(params, requestOptions);
+            List<com.stripe.model.PaymentMethod> data = collection != null && collection.getData() != null
+                    ? collection.getData()
+                    : List.of();
+
+            String finalDefaultId = defaultPaymentMethodId;
+            boolean hasMatchedDefault = finalDefaultId != null && !finalDefaultId.isBlank()
+                    && data.stream().anyMatch(pm -> finalDefaultId.equals(pm.getId()));
+
             List<StripePaymentMethodDto> result = new ArrayList<>();
             boolean isFirst = true;
-            if (collection != null && collection.getData() != null) {
-                for (com.stripe.model.PaymentMethod pm : collection.getData()) {
-                    var card = pm.getCard();
-                    String brand = card != null && card.getBrand() != null ? card.getBrand().toUpperCase(Locale.ROOT) : "VISA";
-                    String last4 = card != null && card.getLast4() != null ? card.getLast4() : "4242";
-                    String expiry = (card != null && card.getExpMonth() != null && card.getExpYear() != null)
-                            ? String.format("%02d/%s", card.getExpMonth(), String.valueOf(card.getExpYear()).substring(Math.max(0, String.valueOf(card.getExpYear()).length() - 2)))
-                            : "12/28";
-                    String cardholder = pm.getBillingDetails() != null && pm.getBillingDetails().getName() != null
-                            ? pm.getBillingDetails().getName()
-                            : "Billetera SafeDiary";
+            for (com.stripe.model.PaymentMethod pm : data) {
+                var card = pm.getCard();
+                String brand = card != null && card.getBrand() != null ? card.getBrand().toUpperCase(Locale.ROOT) : "VISA";
+                String last4 = card != null && card.getLast4() != null ? card.getLast4() : "4242";
+                String expiry = (card != null && card.getExpMonth() != null && card.getExpYear() != null)
+                        ? String.format("%02d/%s", card.getExpMonth(), String.valueOf(card.getExpYear()).substring(Math.max(0, String.valueOf(card.getExpYear()).length() - 2)))
+                        : "12/28";
+                String cardholder = pm.getBillingDetails() != null && pm.getBillingDetails().getName() != null
+                        ? pm.getBillingDetails().getName()
+                        : "Billetera SafeDiary";
 
-                    result.add(new StripePaymentMethodDto(
-                            pm.getId(),
-                            brand,
-                            last4,
-                            expiry,
-                            cardholder,
-                            isFirst,
-                            "Billetera SafeDiary Activa"
-                    ));
-                    isFirst = false;
-                }
+                boolean isDefault = hasMatchedDefault ? finalDefaultId.equals(pm.getId()) : isFirst;
+
+                result.add(new StripePaymentMethodDto(
+                        pm.getId(),
+                        brand,
+                        last4,
+                        expiry,
+                        cardholder,
+                        isDefault,
+                        "Billetera SafeDiary Activa"
+                ));
+                isFirst = false;
             }
             return result;
         } catch (Exception ex) {
             log.warn("Could not list Stripe payment methods for customer {}: {}", stripeCustomerId, ex.getMessage());
             return List.of();
         }
+    }
+
+    private boolean isRealStripeCustomer(String stripeCustomerId) {
+        return stripeCustomerId != null
+                && !stripeCustomerId.isBlank()
+                && !stripeCustomerId.startsWith("cus_simulated_");
     }
 
     private String resolvePriceId(SubscriptionPlan plan) {

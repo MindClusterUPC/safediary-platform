@@ -132,6 +132,15 @@ public class Subscription extends AbstractDomainAggregateRoot<Subscription> {
     }
 
     /**
+     * Links or updates the Stripe Customer ID associated with this patient's wallet.
+     */
+    public void assignStripeCustomerId(String stripeCustomerId) {
+        if (stripeCustomerId != null && !stripeCustomerId.isBlank()) {
+            this.stripeCustomerId = stripeCustomerId.trim();
+        }
+    }
+
+    /**
      * Marks the subscription as expired.
      */
     public void expire() {

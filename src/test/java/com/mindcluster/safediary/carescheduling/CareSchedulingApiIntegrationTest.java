@@ -143,6 +143,12 @@ class CareSchedulingApiIntegrationTest {
                 .andExpect(jsonPath("$.holdRemainingSeconds").value(greaterThan(3500))));
         assertThat(events.stream(AppointmentChargeRequestedDto.class)).singleElement()
                 .satisfies(charge -> assertThat(charge.idempotencyKey()).isEqualTo(appointment.get("paymentReference").asString()));
+        assertThat(facade.fetchPayableAppointment(id, OTHER_PATIENT)).isEmpty();
+        assertThat(facade.fetchPayableAppointment(id, PATIENT)).hasValueSatisfying(payable -> {
+            assertThat(payable.paymentReference()).isEqualTo(appointment.get("paymentReference").asString());
+            assertThat(payable.amount()).isEqualByComparingTo("120.00");
+            assertThat(payable.clinicianId()).isEqualTo(clinician);
+        });
 
         propose(contact(clinician, OTHER_PATIENT), at(15)).andExpect(status().isConflict());
         as(get("/api/v1/schedule/clinicians/" + clinician + "/slots?date=" + day), PSYCHOLOGIST, "PSYCHOLOGIST")
@@ -154,6 +160,7 @@ class CareSchedulingApiIntegrationTest {
         pay(appointment, true).andExpect(jsonPath("$.message").value("CONFIRMED"));
         pay(appointment, true).andExpect(jsonPath("$.message").value("CONFIRMED"));
         as(get("/api/v1/appointments"), PATIENT, "PATIENT").andExpect(jsonPath("$[0].status").value("CONFIRMED"));
+        assertThat(facade.fetchPayableAppointment(id, PATIENT)).isEmpty();
 
         as(post("/api/v1/appointments/" + id + "/session/access"), PATIENT, "PATIENT").andExpect(status().is(422));
         var start = Instant.now().minus(Duration.ofMinutes(5));

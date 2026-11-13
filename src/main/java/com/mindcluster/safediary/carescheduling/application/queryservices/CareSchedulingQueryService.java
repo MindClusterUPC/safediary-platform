@@ -14,6 +14,8 @@ public interface CareSchedulingQueryService {
     List<Appointment> handle(GetPatientAppointmentsQuery query);
     List<Appointment> handle(GetClinicianAgendaQuery query);
     List<BookableSlot> handle(GetBookableSlotsQuery query);
+    /** Internal: the patient's appointment with an active hold waiting for payment, for Payments and Payouts. */
+    Optional<Appointment> handle(GetPayableAppointmentQuery query);
     Optional<ClinicalSession> handle(GetSessionDetailsQuery query);
     Optional<CoordinationMessage> latestMessage(Long contactRequestId);
 }

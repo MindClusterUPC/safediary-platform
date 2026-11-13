@@ -27,7 +27,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -203,21 +202,22 @@ public class SubscriptionCommandServiceImpl implements SubscriptionCommandServic
             if ("checkout.session.completed".equalsIgnoreCase(eventType) && "CONSULTATION".equalsIgnoreCase(event.paymentType())) {
                 if (event.appointmentId() != null) {
                     log.info("Consultation checkout completed for appointment {}", event.appointmentId());
-                    if (paymentIntentRepository != null) {
-                        String ref = "care-appointment-" + event.appointmentId();
-                        paymentIntentRepository.findByIdempotencyKey(ref).ifPresent(pi -> {
-                            pi.markApproved(event.paymentIntentId());
-                            paymentIntentRepository.save(pi);
-                        });
-                    }
-                    if (eventPublisher != null) {
-                        eventPublisher.publishEvent(new AppointmentPaymentResultDto(
-                                event.appointmentId(),
-                                event.paymentIntentId() != null ? event.paymentIntentId() : ("stripe-session-" + event.eventId()),
-                                BigDecimal.ZERO, // amount handled by gateway hold
-                                "USD",
-                                true
-                        ));
+                    // Care Scheduling only confirms the reservation reference with the agreed amount and currency,
+                    // which are kept in the PaymentIntent created for the hold.
+                    String ref = "care-appointment-" + event.appointmentId();
+                    var paymentIntent = paymentIntentRepository != null
+                            ? paymentIntentRepository.findByIdempotencyKey(ref)
+                            : Optional.<PaymentIntent>empty();
+                    if (paymentIntent.isEmpty()) {
+                        log.warn("No PaymentIntent {} for completed consultation checkout; appointment not confirmed", ref);
+                    } else {
+                        var pi = paymentIntent.get();
+                        pi.markApproved(event.paymentIntentId());
+                        paymentIntentRepository.save(pi);
+                        if (eventPublisher != null) {
+                            eventPublisher.publishEvent(new AppointmentPaymentResultDto(
+                                    event.appointmentId(), pi.getIdempotencyKey(), pi.getAmount(), pi.getCurrency(), true));
+                        }
                     }
                 }
             }

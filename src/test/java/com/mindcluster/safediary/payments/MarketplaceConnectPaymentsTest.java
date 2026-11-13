@@ -1,6 +1,9 @@
 package com.mindcluster.safediary.payments;
 
+import com.mindcluster.safediary.carescheduling.interfaces.acl.CareSchedulingContextFacade;
 import com.mindcluster.safediary.carescheduling.interfaces.acl.dto.AppointmentPaymentResultDto;
+import com.mindcluster.safediary.carescheduling.interfaces.acl.dto.PayableAppointmentDto;
+import com.mindcluster.safediary.cliniciandirectory.interfaces.acl.ClinicianDirectoryContextFacade;
 import com.mindcluster.safediary.payments.application.commandservices.dto.ConnectedAccountOnboardingDto;
 import com.mindcluster.safediary.payments.application.commandservices.dto.ConsultationCheckoutResultDto;
 import com.mindcluster.safediary.payments.application.internal.commandservices.ConnectedAccountCommandServiceImpl;
@@ -49,9 +52,13 @@ class MarketplaceConnectPaymentsTest {
     private StripeGatewayClient stripeGatewayClient;
     private ApplicationEventPublisher eventPublisher;
     private StripeProperties stripeProperties;
+    private CareSchedulingContextFacade careScheduling;
+    private ClinicianDirectoryContextFacade clinicianDirectory;
 
     @BeforeEach
     void setUp() {
+        careScheduling = mock(CareSchedulingContextFacade.class);
+        clinicianDirectory = mock(ClinicianDirectoryContextFacade.class);
         connectedAccountRepository = mock(ConnectedAccountRepository.class);
         paymentIntentRepository = mock(PaymentIntentRepository.class);
         subscriptionRepository = mock(SubscriptionRepository.class);
@@ -86,11 +93,15 @@ class MarketplaceConnectPaymentsTest {
     }
 
     @Test
-    @DisplayName("Consultation split payment: validates connected account and creates destination charge session")
+    @DisplayName("Consultation split payment: charges the held appointment amount resolved on the server")
     void testConsultationSplitPayment() {
         ConsultationPaymentCommandServiceImpl service = new ConsultationPaymentCommandServiceImpl(
-                connectedAccountRepository, paymentIntentRepository, stripeGatewayClient, stripeProperties);
+                connectedAccountRepository, paymentIntentRepository, stripeGatewayClient, stripeProperties,
+                careScheduling, clinicianDirectory);
 
+        when(careScheduling.fetchPayableAppointment(555L, 100L)).thenReturn(Optional.of(new PayableAppointmentDto(
+                555L, 100L, 7L, new BigDecimal("60.00"), "USD", "care-appointment-555", Instant.now().plusSeconds(3600))));
+        when(clinicianDirectory.fetchClinicianAccountId(7L)).thenReturn(Optional.of(200L));
         ConnectedAccount readyAccount = new ConnectedAccount(1L, 200L, "acct_smith_123", true, true, true, Instant.now(), Instant.now());
         when(connectedAccountRepository.findByPsychologistAccountId(200L)).thenReturn(Optional.of(readyAccount));
         when(paymentIntentRepository.findByIdempotencyKey(any())).thenReturn(Optional.empty());
@@ -99,21 +110,33 @@ class MarketplaceConnectPaymentsTest {
                 eq(100L), eq(200L), eq("acct_smith_123"), any(), any(), eq("USD"), eq(555L), any(), any(), any()))
                 .thenReturn(new StripeCheckoutSession("cs_consultation_test", "https://checkout.stripe.com/pay/cs_consultation_test"));
 
-        var command = new CreateConsultationCheckoutCommand(
-                100L, 200L, 555L, new BigDecimal("60.00"), new BigDecimal("9.00"), "USD",
-                "http://ok", "http://cancel", "idemp-consultation-555");
-        var result = service.handle(command);
+        var result = service.handle(new CreateConsultationCheckoutCommand(100L, 555L, "http://ok", "http://cancel"));
 
         assertThat(result).isInstanceOf(Result.Success.class);
         ConsultationCheckoutResultDto dto = ((Result.Success<ConsultationCheckoutResultDto, ?>) result).value();
         assertThat(dto.appointmentId()).isEqualTo(555L);
+        assertThat(dto.psychologistAccountId()).isEqualTo(200L);
         assertThat(dto.sessionId()).isEqualTo("cs_consultation_test");
         assertThat(dto.checkoutUrl()).isEqualTo("https://checkout.stripe.com/pay/cs_consultation_test");
 
         verify(paymentIntentRepository).save(any(PaymentIntent.class));
         verify(stripeGatewayClient).createConsultationCheckoutSession(
                 eq(100L), eq(200L), eq("acct_smith_123"), eq(new BigDecimal("60.00")), eq(new BigDecimal("9.00")),
-                eq("USD"), eq(555L), eq("http://ok"), eq("http://cancel"), eq("idemp-consultation-555"));
+                eq("USD"), eq(555L), eq("http://ok"), eq("http://cancel"), eq("care-appointment-555"));
+    }
+
+    @Test
+    @DisplayName("Consultation checkout is rejected when the patient has no active hold for the appointment")
+    void testConsultationCheckoutWithoutActiveHold() {
+        ConsultationPaymentCommandServiceImpl service = new ConsultationPaymentCommandServiceImpl(
+                connectedAccountRepository, paymentIntentRepository, stripeGatewayClient, stripeProperties,
+                careScheduling, clinicianDirectory);
+        when(careScheduling.fetchPayableAppointment(555L, 999L)).thenReturn(Optional.empty());
+
+        var result = service.handle(new CreateConsultationCheckoutCommand(999L, 555L, null, null));
+
+        assertThat(result).isInstanceOf(Result.Failure.class);
+        verifyNoInteractions(stripeGatewayClient, paymentIntentRepository);
     }
 
     @Test
@@ -220,7 +243,9 @@ class MarketplaceConnectPaymentsTest {
         AppointmentPaymentResultDto published = captor.getValue();
         assertThat(published.appointmentId()).isEqualTo(777L);
         assertThat(published.approved()).isTrue();
-        assertThat(published.paymentReference()).isEqualTo("pi_stripe_12345");
+        assertThat(published.paymentReference()).isEqualTo("care-appointment-777");
+        assertThat(published.amount()).isEqualByComparingTo("60.00");
+        assertThat(published.currency()).isEqualTo("USD");
     }
 
     @Test

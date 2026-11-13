@@ -21,7 +21,7 @@ Reglas principales:
 - **Cobro Dividido (Split Payment / Destination Charge):** El pago de citas (`Mode.PAYMENT`) deduce la comisión de la plataforma (`application_fee_amount`) y transfiere el neto directamente al `acct_...` del psicólogo (`transfer_data.destination`).
 - **Verificación de Firma Dual:** El webhook valida criptográficamente con `stripe.webhook-secret` (eventos de suscripción de plataforma) y realiza fallback automático a `stripe.connect-webhook-secret` para eventos de cuentas conectadas.
 - **Deserialización Segura:** Si `event.getDataObjectDeserializer().getObject()` viene vacío por diferencias de versión entre la API de Stripe y el SDK, se activa `deserializeUnsafe()` como fallback seguro.
-- **Confirmación Automática de Citas:** Al confirmarse el pago de una consultoría (`checkout.session.completed` con `type=CONSULTATION`), se publica internamente `AppointmentPaymentResultDto`, notificando a `CareScheduling` para confirmar la cita de forma desacoplada.
+- **Confirmación Automática de Citas:** Al confirmarse el pago de una consultoría (`checkout.session.completed` con `type=CONSULTATION`), se publica internamente `AppointmentPaymentResultDto` con la referencia `care-appointment-<id>`, el monto y la moneda de la reserva, notificando a `CareScheduling` para confirmar la cita de forma desacoplada.
 
 ## Integraciones (context map)
 
@@ -65,7 +65,7 @@ Prefijo `/api/v1/payments`.
 | GET | `/connect/accounts/{id}` | Token (psicólogo) | Consultar si la cuenta conectada tiene pagos y retiros habilitados (`ready`). |
 | GET | `/connect/refresh` | Público | Landing si expira el enlace de onboarding de Connect. |
 | GET | `/connect/return` | Público | Landing al finalizar el formulario de onboarding de Connect. |
-| POST | `/consultations/checkout` | Token (paciente) | Iniciar Checkout para cita médica con split payment y comisión de plataforma. |
+| POST | `/consultations/checkout` | Token (paciente) | Iniciar Checkout de una cita con reserva vigente. Solo recibe `appointmentId`: el monto, la moneda y el psicólogo se obtienen de Care Scheduling y Clinician Directory. |
 | POST | `/webhooks/stripe` | Público (Firma Stripe) | Receptor único de webhooks con verificación criptográfica y procesamiento idempotente. |
 
 ## Recorrido de Prueba con Stripe CLI
@@ -111,5 +111,5 @@ Copia el `whsec_...` obtenido y configúralo en `STRIPE_WEBHOOK_SECRET`.
    curl -X POST http://localhost:8080/api/v1/payments/consultations/checkout \
      -H "Content-Type: application/json" \
      -H "Authorization: Bearer <TOKEN_PACIENTE>" \
-     -d '{"patientAccountId": 1, "psychologistAccountId": 20, "appointmentId": 105, "totalAmount": 70.00, "platformFee": 10.50}'
+     -d '{"appointmentId": 105}'
    ```

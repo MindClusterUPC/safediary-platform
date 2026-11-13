@@ -84,6 +84,15 @@ public class CareSchedulingQueryServiceImpl implements CareSchedulingQueryServic
                 appointments.findByClinicianIdOverlapping(q.clinicianId(), dayStart, dayEnd), Instant.now(), owner);
     }
 
+    public Optional<Appointment> handle(GetPayableAppointmentQuery q) {
+        if (q.appointmentId() == null || q.patientAccountId() == null) return Optional.empty();
+        var now = Instant.now();
+        return appointments.findById(q.appointmentId())
+                .filter(a -> a.getPatientAccountId().equals(q.patientAccountId()))
+                .filter(a -> a.getStatus() == AppointmentStatus.HELD && a.getHold() != null && a.getHold().isActiveAt(now))
+                .filter(a -> a.getPaymentReference() != null);
+    }
+
     public Optional<ClinicalSession> handle(GetSessionDetailsQuery q) {
         var appointment = appointments.findById(q.appointmentId()).orElseThrow(() -> missing("Appointment", q.appointmentId()));
         if (!appointment.hasParticipant(policy.participant(q.actor())))

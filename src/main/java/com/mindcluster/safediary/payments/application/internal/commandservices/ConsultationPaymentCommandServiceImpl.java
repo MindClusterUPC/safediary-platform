@@ -1,5 +1,7 @@
 package com.mindcluster.safediary.payments.application.internal.commandservices;
 
+import com.mindcluster.safediary.carescheduling.interfaces.acl.CareSchedulingContextFacade;
+import com.mindcluster.safediary.cliniciandirectory.interfaces.acl.ClinicianDirectoryContextFacade;
 import com.mindcluster.safediary.payments.application.commandservices.ConsultationPaymentCommandService;
 import com.mindcluster.safediary.payments.application.commandservices.dto.ConsultationCheckoutResultDto;
 import com.mindcluster.safediary.payments.application.outbound.StripeGatewayClient;
@@ -29,22 +31,40 @@ public class ConsultationPaymentCommandServiceImpl implements ConsultationPaymen
     private final PaymentIntentRepository paymentIntentRepository;
     private final StripeGatewayClient stripeGatewayClient;
     private final StripeProperties stripeProperties;
+    private final CareSchedulingContextFacade careScheduling;
+    private final ClinicianDirectoryContextFacade clinicianDirectory;
 
     public ConsultationPaymentCommandServiceImpl(ConnectedAccountRepository connectedAccountRepository,
                                                 PaymentIntentRepository paymentIntentRepository,
                                                 StripeGatewayClient stripeGatewayClient,
-                                                StripeProperties stripeProperties) {
+                                                StripeProperties stripeProperties,
+                                                CareSchedulingContextFacade careScheduling,
+                                                ClinicianDirectoryContextFacade clinicianDirectory) {
         this.connectedAccountRepository = connectedAccountRepository;
         this.paymentIntentRepository = paymentIntentRepository;
         this.stripeGatewayClient = stripeGatewayClient;
         this.stripeProperties = stripeProperties;
+        this.careScheduling = careScheduling;
+        this.clinicianDirectory = clinicianDirectory;
     }
 
     @Override
     @Transactional
     public Result<ConsultationCheckoutResultDto, ApplicationError> handle(CreateConsultationCheckoutCommand command) {
         try {
-            Long psychologistAccountId = command.psychologistAccountId();
+            var appointment = careScheduling.fetchPayableAppointment(command.appointmentId(), command.patientAccountId());
+            if (appointment.isEmpty()) {
+                return Result.failure(ApplicationError.businessRuleViolation("appointment-payment",
+                        "The appointment has no active reservation waiting for your payment."));
+            }
+            var payable = appointment.get();
+
+            var psychologistAccount = clinicianDirectory.fetchClinicianAccountId(payable.clinicianId());
+            if (psychologistAccount.isEmpty()) {
+                return Result.failure(ApplicationError.businessRuleViolation("PsychologistOnboarding",
+                        "The psychologist is no longer available in the directory."));
+            }
+            Long psychologistAccountId = psychologistAccount.get();
             var accountOpt = connectedAccountRepository.findByPsychologistAccountId(psychologistAccountId);
 
             if (accountOpt.isEmpty()) {
@@ -60,53 +80,45 @@ public class ConsultationPaymentCommandServiceImpl implements ConsultationPaymen
                         "Psychologist has not completed onboarding; charges are not enabled yet."));
             }
 
-            BigDecimal platformFee = command.platformFee();
-            if (platformFee == null || platformFee.compareTo(BigDecimal.ZERO) < 0) {
-                double defaultPercent = stripeProperties.getMarketplace() != null
-                        ? stripeProperties.getMarketplace().getFeePercent()
-                        : 15.0;
-                platformFee = command.totalAmount()
-                        .multiply(BigDecimal.valueOf(defaultPercent / 100.0))
-                        .setScale(2, RoundingMode.HALF_UP);
-            }
+            double feePercent = stripeProperties.getMarketplace() != null
+                    ? stripeProperties.getMarketplace().getFeePercent()
+                    : 15.0;
+            BigDecimal platformFee = payable.amount()
+                    .multiply(BigDecimal.valueOf(feePercent / 100.0))
+                    .setScale(2, RoundingMode.HALF_UP);
 
-            String idempotencyKey = (command.idempotencyKey() != null && !command.idempotencyKey().isBlank())
-                    ? command.idempotencyKey().trim()
-                    : "care-appointment-" + command.appointmentId();
+            // Same reference Care Scheduling attached to the hold, so the webhook result matches the reservation.
+            String idempotencyKey = payable.paymentReference();
 
-            // Record or retrieve PaymentIntent
-            PaymentIntent paymentIntent = paymentIntentRepository.findByIdempotencyKey(idempotencyKey)
-                    .orElseGet(() -> {
-                        PaymentIntent pi = new PaymentIntent(
-                                "CONSULTATION",
-                                command.appointmentId(),
-                                command.patientAccountId(),
-                                command.totalAmount(),
-                                command.currency() != null ? command.currency() : "USD",
-                                idempotencyKey
-                        );
-                        return paymentIntentRepository.save(pi);
-                    });
+            paymentIntentRepository.findByIdempotencyKey(idempotencyKey)
+                    .orElseGet(() -> paymentIntentRepository.save(new PaymentIntent(
+                            "CONSULTATION",
+                            payable.appointmentId(),
+                            payable.patientAccountId(),
+                            payable.amount(),
+                            payable.currency(),
+                            idempotencyKey
+                    )));
 
             StripeCheckoutSession session = stripeGatewayClient.createConsultationCheckoutSession(
-                    command.patientAccountId(),
+                    payable.patientAccountId(),
                     psychologistAccountId,
                     connectedAccount.getStripeAccountId(),
-                    command.totalAmount(),
+                    payable.amount(),
                     platformFee,
-                    command.currency(),
-                    command.appointmentId(),
+                    payable.currency(),
+                    payable.appointmentId(),
                     command.successUrl(),
                     command.cancelUrl(),
                     idempotencyKey
             );
 
             return Result.success(new ConsultationCheckoutResultDto(
-                    command.appointmentId(),
-                    command.patientAccountId(),
+                    payable.appointmentId(),
+                    payable.patientAccountId(),
                     psychologistAccountId,
-                    command.totalAmount(),
-                    command.currency() != null ? command.currency() : "USD",
+                    payable.amount(),
+                    payable.currency(),
                     session.checkoutUrl(),
                     session.sessionId()
             ));

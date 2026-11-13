@@ -7,5 +7,7 @@ public interface ClinicianDirectoryContextFacade {
     Optional<PublishedClinicianRateDto> fetchPublishedClinicianRate(Long clinicianId);
     /** Resolves the clinician profile owned by an IAM account, in any verification or publication state. */
     Optional<Long> fetchClinicianIdByAccountId(Long accountId);
+    /** IAM account that owns a verified, published clinician profile (for example, to pay the psychologist). */
+    Optional<Long> fetchClinicianAccountId(Long clinicianId);
     Result<Long, ApplicationError> recordCompletedSession(CompletedCareSessionDto session);
 }

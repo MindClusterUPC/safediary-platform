@@ -29,6 +29,10 @@ public class ClinicianDirectoryContextFacadeImpl implements ClinicianDirectoryCo
         return queries.handle(new GetOwnClinicianProfileQuery(new DirectoryActor(accountId, DirectoryRole.PSYCHOLOGIST)))
                 .map(p -> p.getId());
     }
+    public Optional<Long> fetchClinicianAccountId(Long clinicianId) {
+        if (clinicianId == null || clinicianId <= 0) return Optional.empty();
+        return queries.handle(new GetClinicianProfileQuery(clinicianId)).map(p -> p.getAccountId());
+    }
     public Result<Long, ApplicationError> recordCompletedSession(CompletedCareSessionDto s) {
         return commands.handle(new RecordCompletedSessionCommand(s.appointmentId(), s.clinicianId(),
                 s.patientAccountId(), s.durationMinutes(), s.completedAt())).map(session -> session.id());

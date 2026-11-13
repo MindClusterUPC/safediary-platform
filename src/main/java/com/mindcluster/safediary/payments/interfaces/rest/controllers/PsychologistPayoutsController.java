@@ -4,6 +4,7 @@ import com.mindcluster.safediary.payments.application.commandservices.ConnectedA
 import com.mindcluster.safediary.payments.application.queryservices.ConnectedAccountQueryService;
 import com.mindcluster.safediary.payments.domain.model.commands.CreateConnectedAccountCommand;
 import com.mindcluster.safediary.payments.domain.model.queries.GetConnectedAccountQuery;
+import com.mindcluster.safediary.payments.interfaces.rest.PaymentsAccountGuard;
 import com.mindcluster.safediary.payments.interfaces.rest.resources.ConnectedAccountResponseResource;
 import com.mindcluster.safediary.payments.interfaces.rest.resources.CreateConnectedAccountResource;
 import com.mindcluster.safediary.shared.interfaces.rest.resources.MessageResource;
@@ -27,11 +28,14 @@ public class PsychologistPayoutsController {
 
     private final ConnectedAccountCommandService connectedAccountCommandService;
     private final ConnectedAccountQueryService connectedAccountQueryService;
+    private final PaymentsAccountGuard accountGuard;
 
     public PsychologistPayoutsController(ConnectedAccountCommandService connectedAccountCommandService,
-                                         ConnectedAccountQueryService connectedAccountQueryService) {
+                                         ConnectedAccountQueryService connectedAccountQueryService,
+                                         PaymentsAccountGuard accountGuard) {
         this.connectedAccountCommandService = connectedAccountCommandService;
         this.connectedAccountQueryService = connectedAccountQueryService;
+        this.accountGuard = accountGuard;
     }
 
     @PostMapping(value = "/accounts", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -46,8 +50,9 @@ public class PsychologistPayoutsController {
             @ApiResponse(responseCode = "500", description = "Error communicating with Stripe")
     })
     public ResponseEntity<?> createOrGetOnboardingLink(@Valid @RequestBody CreateConnectedAccountResource resource) {
+        Long psychologistAccountId = accountGuard.requireOwnAccountWithRole(resource.psychologistAccountId(), "PSYCHOLOGIST");
         var command = new CreateConnectedAccountCommand(
-                resource.psychologistAccountId(),
+                psychologistAccountId,
                 resource.email(),
                 resource.refreshUrl(),
                 resource.returnUrl()
@@ -75,7 +80,8 @@ public class PsychologistPayoutsController {
             description = "Checks whether the psychologist has completed Stripe Express onboarding, and whether charges and payouts are active."
     )
     public ResponseEntity<?> getConnectedAccountStatus(@PathVariable Long psychologistAccountId) {
-        var query = new GetConnectedAccountQuery(psychologistAccountId);
+        Long verifiedAccountId = accountGuard.requireOwnAccountWithRole(psychologistAccountId, "PSYCHOLOGIST");
+        var query = new GetConnectedAccountQuery(verifiedAccountId);
         var result = connectedAccountQueryService.handle(query);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,

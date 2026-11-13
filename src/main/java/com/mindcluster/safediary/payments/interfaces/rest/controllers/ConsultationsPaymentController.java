@@ -2,6 +2,7 @@ package com.mindcluster.safediary.payments.interfaces.rest.controllers;
 
 import com.mindcluster.safediary.payments.application.commandservices.ConsultationPaymentCommandService;
 import com.mindcluster.safediary.payments.domain.model.commands.CreateConsultationCheckoutCommand;
+import com.mindcluster.safediary.payments.interfaces.rest.PaymentsAccountGuard;
 import com.mindcluster.safediary.payments.interfaces.rest.resources.ConsultationCheckoutResponseResource;
 import com.mindcluster.safediary.payments.interfaces.rest.resources.CreateConsultationCheckoutResource;
 import com.mindcluster.safediary.shared.interfaces.rest.transform.ResponseEntityAssembler;
@@ -23,9 +24,12 @@ import org.springframework.web.bind.annotation.*;
 public class ConsultationsPaymentController {
 
     private final ConsultationPaymentCommandService consultationPaymentCommandService;
+    private final PaymentsAccountGuard accountGuard;
 
-    public ConsultationsPaymentController(ConsultationPaymentCommandService consultationPaymentCommandService) {
+    public ConsultationsPaymentController(ConsultationPaymentCommandService consultationPaymentCommandService,
+                                          PaymentsAccountGuard accountGuard) {
         this.consultationPaymentCommandService = consultationPaymentCommandService;
+        this.accountGuard = accountGuard;
     }
 
     @PostMapping(value = "/checkout", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -37,15 +41,16 @@ public class ConsultationsPaymentController {
             @ApiResponse(responseCode = "200", description = "Consultation checkout session created",
                     content = @Content(schema = @Schema(implementation = ConsultationCheckoutResponseResource.class))),
             @ApiResponse(responseCode = "400", description = "Validation error"),
-            @ApiResponse(responseCode = "412", description = "Psychologist has not completed Stripe Connect onboarding"),
+            @ApiResponse(responseCode = "422", description = "Psychologist has not completed Stripe Connect onboarding"),
             @ApiResponse(responseCode = "500", description = "Internal error connecting with Stripe")
     })
     public ResponseEntity<?> createConsultationCheckout(
             @Valid @RequestBody CreateConsultationCheckoutResource resource,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKeyHeader
     ) {
+        Long patientAccountId = accountGuard.requireOwnAccountWithRole(resource.patientAccountId(), "PATIENT");
         var command = new CreateConsultationCheckoutCommand(
-                resource.patientAccountId(),
+                patientAccountId,
                 resource.psychologistAccountId(),
                 resource.appointmentId(),
                 resource.totalAmount(),

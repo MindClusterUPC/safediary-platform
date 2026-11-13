@@ -21,12 +21,22 @@ public class PaymentsAccountGuard {
 
     /** Returns the current account id, rejecting a different account id sent by the client. */
     public Long requireOwnAccount(Long requestedAccountId) {
-        var accountId = iamContextFacade.fetchAuthenticatedAccount()
-                .map(IamAccountDto::accountId)
+        return requireOwnAccountWithRole(requestedAccountId, null);
+    }
+
+    /**
+     * Returns the current account id after verifying both the expected IAM role (when provided)
+     * and that any client-supplied account id matches the signed-in account.
+     */
+    public Long requireOwnAccountWithRole(Long requestedAccountId, String requiredRole) {
+        var account = iamContextFacade.fetchAuthenticatedAccount()
                 .orElseThrow(() -> new AuthenticationCredentialsNotFoundException("Sign in to manage your payments"));
-        if (requestedAccountId != null && !requestedAccountId.equals(accountId)) {
+        if (requiredRole != null && !requiredRole.equalsIgnoreCase(account.role())) {
+            throw new AccessDeniedException("Operation restricted to " + requiredRole + " role");
+        }
+        if (requestedAccountId != null && !requestedAccountId.equals(account.accountId())) {
             throw new AccessDeniedException("The payment data does not belong to the signed-in user");
         }
-        return accountId;
+        return account.accountId();
     }
 }

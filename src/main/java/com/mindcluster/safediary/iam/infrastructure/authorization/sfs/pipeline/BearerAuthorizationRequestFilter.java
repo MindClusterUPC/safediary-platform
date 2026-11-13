@@ -47,7 +47,7 @@ public class BearerAuthorizationRequestFilter extends OncePerRequestFilter {
         return path.startsWith(PUBLIC_AUTHENTICATION_PATH)
                 || path.startsWith("/api/v1/payments/webhooks/")
                 || path.equals("/api/v1/payments/subscriptions/success")
-                || path.equals("/api/v1/payments/subscriptions/cancel")
+                || ("GET".equalsIgnoreCase(request.getMethod()) && path.equals("/api/v1/payments/subscriptions/cancel"))
                 || path.equals("/api/v1/payments/connect/refresh")
                 || path.equals("/api/v1/payments/connect/return")
                 || path.startsWith("/swagger-ui")

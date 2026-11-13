@@ -35,7 +35,6 @@ public class WebSecurityConfiguration {
             "/docs",
             "/api/v1/payments/webhooks/**",
             "/api/v1/payments/subscriptions/success",
-            "/api/v1/payments/subscriptions/cancel",
             "/api/v1/payments/connect/refresh",
             "/api/v1/payments/connect/return",
             "/api/v1/dev/**",
@@ -58,6 +57,8 @@ public class WebSecurityConfiguration {
                                 HttpServletResponse.SC_FORBIDDEN, "FORBIDDEN", "Access to this resource is not allowed")))
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        // Only the browser redirect landing on GET /cancel is public; POST /cancel cancels a subscription and requires JWT.
+                        .requestMatchers(HttpMethod.GET, "/api/v1/payments/subscriptions/cancel").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/clinicians", "/api/v1/clinicians/*", "/api/v1/clinicians/*/rating", "/api/v1/clinicians/*/reviews").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new BearerAuthorizationRequestFilter(tokens, accounts, environment), UsernamePasswordAuthenticationFilter.class);

@@ -714,6 +714,7 @@ public class StripeGatewayAclAdapter implements StripeGatewayClient {
 
             SessionCreateParams.Builder paramsBuilder = SessionCreateParams.builder()
                     .setMode(SessionCreateParams.Mode.SETUP)
+                    .setCurrency("usd")
                     .setSuccessUrl(effectiveSuccessUrl)
                     .setCancelUrl(effectiveCancelUrl)
                     .setClientReferenceId(String.valueOf(patientAccountId))

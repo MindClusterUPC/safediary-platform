@@ -58,7 +58,7 @@ public class SubscriptionsController {
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKeyHeader
     ) {
         var command = new CreateSubscriptionCheckoutCommand(
-                accountGuard.requireOwnAccount(resource.patientAccountId()),
+                accountGuard.requireOwnAccountWithRole(resource.patientAccountId(), "PATIENT"),
                 resource.plan(),
                 resource.successUrl(),
                 resource.cancelUrl(),
@@ -87,7 +87,10 @@ public class SubscriptionsController {
             @RequestParam(value = "patientAccountId", required = false) Long patientAccountIdParam,
             @RequestHeader(value = "X-Patient-Account-Id", required = false) Long patientAccountHeader
     ) {
-        Long effectiveId = accountGuard.requireOwnAccount(patientAccountIdParam != null ? patientAccountIdParam : patientAccountHeader);
+        Long effectiveId = accountGuard.requireOwnAccountWithRole(
+                patientAccountIdParam != null ? patientAccountIdParam : patientAccountHeader,
+                "PATIENT"
+        );
         if (effectiveId == null || effectiveId <= 0) {
             return ResponseEntity.badRequest().body("patientAccountId must be provided via query param or X-Patient-Account-Id header");
         }
@@ -112,7 +115,7 @@ public class SubscriptionsController {
             @ApiResponse(responseCode = "404", description = "Subscription not found")
     })
     public ResponseEntity<?> cancelSubscription(@Valid @RequestBody CancelSubscriptionResource resource) {
-        var command = new CancelSubscriptionCommand(accountGuard.requireOwnAccount(resource.patientAccountId()));
+        var command = new CancelSubscriptionCommand(accountGuard.requireOwnAccountWithRole(resource.patientAccountId(), "PATIENT"));
         var result = subscriptionCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,

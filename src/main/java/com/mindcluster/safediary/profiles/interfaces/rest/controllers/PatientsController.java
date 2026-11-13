@@ -1,9 +1,12 @@
 package com.mindcluster.safediary.profiles.interfaces.rest.controllers;
 
 import com.mindcluster.safediary.iam.interfaces.acl.IamContextFacade;
+import com.mindcluster.safediary.iam.interfaces.acl.dto.IamAccountDto;
 import com.mindcluster.safediary.payments.interfaces.acl.PaymentsContextFacade;
+import com.mindcluster.safediary.payments.interfaces.acl.dto.PatientPlanStatusDto;
 import com.mindcluster.safediary.profiles.application.commandservices.ProfileCommandService;
 import com.mindcluster.safediary.profiles.application.queryservices.ProfileQueryService;
+import com.mindcluster.safediary.profiles.domain.model.aggregates.Patient;
 import com.mindcluster.safediary.profiles.domain.model.commands.*;
 import com.mindcluster.safediary.profiles.domain.model.queries.GetPatientByIdQuery;
 import com.mindcluster.safediary.profiles.interfaces.rest.resources.*;
@@ -68,6 +71,23 @@ public class PatientsController {
                 });
     }
 
+    /**
+     * Resolves subscription status using the IAM account ID (which keys Payments subscriptions)
+     * rather than the profiles.patients table primary key, avoiding mismatches when sequences diverge.
+     */
+    private PatientPlanStatusDto resolvePlanStatus(Patient patient) {
+        if (iamContextFacade == null) {
+            return paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
+        }
+        var accountIdOpt = iamContextFacade.fetchAuthenticatedAccount()
+                .filter(acc -> acc.email().equalsIgnoreCase(patient.getEmail().value()))
+                .map(IamAccountDto::accountId)
+                .or(() -> iamContextFacade.fetchAccountByEmail(patient.getEmail().value()).map(IamAccountDto::accountId));
+        return accountIdOpt
+                .map(paymentsContextFacade::fetchPatientPlanStatus)
+                .orElseGet(() -> new PatientPlanStatusDto(null, "FREE", "ACTIVE", null, true));
+    }
+
     @GetMapping("/me")
     @Operation(summary = "Get the patient profile of the signed-in account")
     public ResponseEntity<?> getCurrentPatient() {
@@ -77,10 +97,7 @@ public class PatientsController {
         var account = iamContextFacade.fetchAuthenticatedAccount()
                 .orElseThrow(() -> new AuthenticationCredentialsNotFoundException("Sign in to access your profile"));
         return profileQueryService.handle(new GetPatientByEmailQuery(account.email()))
-                .map(patient -> {
-                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
-                    return PatientResourceAssembler.toResource(patient, planStatus);
-                })
+                .map(patient -> PatientResourceAssembler.toResource(patient, resolvePlanStatus(patient)))
                 .<ResponseEntity<?>>map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -88,6 +105,16 @@ public class PatientsController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Register a new patient profile with emergency contact")
     public ResponseEntity<?> registerPatient(@Valid @RequestBody RegisterPatientResource resource) {
+        var roleCheck = checkPatientRole();
+        if (roleCheck != null) return roleCheck;
+        if (iamContextFacade != null) {
+            var account = iamContextFacade.fetchAuthenticatedAccount()
+                    .orElseThrow(() -> new AuthenticationCredentialsNotFoundException("Sign in to register your patient profile"));
+            if (!account.email().equalsIgnoreCase(resource.email().trim())) {
+                throw new AccessDeniedException("Patient profile email must match the signed-in account");
+            }
+        }
+
         var command = new RegisterPatientCommand(
                 resource.firstName(),
                 resource.lastName(),
@@ -101,10 +128,7 @@ public class PatientsController {
         var result = profileCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
-                patient -> {
-                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
-                    return PatientResourceAssembler.toResource(patient, planStatus);
-                },
+                patient -> PatientResourceAssembler.toResource(patient, resolvePlanStatus(patient)),
                 HttpStatus.CREATED
         );
     }
@@ -117,10 +141,7 @@ public class PatientsController {
         requireOwnPatient(id);
 
         return profileQueryService.handle(new GetPatientByIdQuery(id))
-                .map(patient -> {
-                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
-                    return PatientResourceAssembler.toResource(patient, planStatus);
-                })
+                .map(patient -> PatientResourceAssembler.toResource(patient, resolvePlanStatus(patient)))
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -148,10 +169,7 @@ public class PatientsController {
         var result = profileCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
-                patient -> {
-                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
-                    return PatientResourceAssembler.toResource(patient, planStatus);
-                },
+                patient -> PatientResourceAssembler.toResource(patient, resolvePlanStatus(patient)),
                 HttpStatus.OK
         );
     }
@@ -167,10 +185,7 @@ public class PatientsController {
         var result = profileCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
-                patient -> {
-                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
-                    return PatientResourceAssembler.toResource(patient, planStatus);
-                },
+                patient -> PatientResourceAssembler.toResource(patient, resolvePlanStatus(patient)),
                 HttpStatus.OK
         );
     }
@@ -191,10 +206,7 @@ public class PatientsController {
         var result = profileCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
-                patient -> {
-                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
-                    return PatientResourceAssembler.toResource(patient, planStatus);
-                },
+                patient -> PatientResourceAssembler.toResource(patient, resolvePlanStatus(patient)),
                 HttpStatus.OK
         );
     }
@@ -217,10 +229,7 @@ public class PatientsController {
         var result = profileCommandService.handle(command);
         return ResponseEntityAssembler.toResponseEntityFromResult(
                 result,
-                patient -> {
-                    var planStatus = paymentsContextFacade.fetchPatientPlanStatus(patient.getId());
-                    return PatientResourceAssembler.toResource(patient, planStatus);
-                },
+                patient -> PatientResourceAssembler.toResource(patient, resolvePlanStatus(patient)),
                 HttpStatus.OK
         );
     }

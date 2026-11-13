@@ -35,10 +35,15 @@ El proveedor `mock` permite arrancar sin keys de IA.
 - Detener el servidor: Ctrl+C en la terminal.
 - Pruebas: `.\mvnw.cmd test`.
 
-## Identidad de desarrollo
+## Identidad y autenticación
 
-IAM todavía no está implementado en la plataforma. Los endpoints privados usan el
-puerto `IamRoleClient`. Su adaptador provisional acepta los siguientes headers
+Los endpoints privados usan `Authorization: Bearer <accessToken>`, obtenido al
+iniciar sesión o registrarse en IAM. El adaptador de `IamRoleClient` consulta
+`IamContextFacade` para obtener la cuenta activa y su rol. Funciona en producción
+sin activar opciones de desarrollo; la identidad autenticada tiene prioridad
+sobre cualquier header enviado por el cliente.
+
+Para pruebas locales sin una cuenta autenticada, se aceptan los siguientes headers
 **solo en dev**, con `clinician-directory.demo-identity.enabled=true`:
 
 | Header | Ejemplo |
@@ -46,11 +51,10 @@ puerto `IamRoleClient`. Su adaptador provisional acepta los siguientes headers
 | `X-Account-Id` | `1` |
 | `X-Role` | `PSYCHOLOGIST`, `PATIENT`, `ADMIN` o `MODERATOR` |
 
-En Swagger, pulsa **Try it out**, completa ambos headers y ejecuta la operación.
+En Swagger, usa **Authorize** con el token de IAM. Para la identidad local de
+desarrollo, pulsa **Try it out** y completa ambos headers.
 Sin identidad responde 401; con un rol o propietario incorrecto responde 403.
 En `prod` se rechazan estos headers incluso si se activa también `dev`.
-Antes de habilitar escrituras en producción hay que sustituir ese adaptador por
-identidad y roles autenticados de IAM.
 
 ## Endpoints
 

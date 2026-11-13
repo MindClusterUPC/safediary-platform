@@ -41,12 +41,13 @@ public class ConsultationsPaymentController {
             @ApiResponse(responseCode = "200", description = "Consultation checkout session created",
                     content = @Content(schema = @Schema(implementation = ConsultationCheckoutResponseResource.class))),
             @ApiResponse(responseCode = "400", description = "Validation error"),
-            @ApiResponse(responseCode = "412", description = "Psychologist has not completed Stripe Connect onboarding"),
+            @ApiResponse(responseCode = "422", description = "Psychologist has not completed Stripe Connect onboarding"),
             @ApiResponse(responseCode = "500", description = "Internal error connecting with Stripe")
     })
     public ResponseEntity<?> createConsultationCheckout(@Valid @RequestBody CreateConsultationCheckoutResource resource) {
+        Long patientAccountId = accountGuard.requireOwnAccountWithRole(resource.patientAccountId(), "PATIENT");
         var command = new CreateConsultationCheckoutCommand(
-                accountGuard.requireOwnAccount(null),
+                patientAccountId,
                 resource.appointmentId(),
                 resource.successUrl(),
                 resource.cancelUrl()

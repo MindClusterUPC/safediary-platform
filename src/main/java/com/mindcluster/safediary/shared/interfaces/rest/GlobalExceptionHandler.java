@@ -5,11 +5,13 @@ import com.mindcluster.safediary.shared.interfaces.rest.transform.ErrorResponseA
 import org.jspecify.annotations.NullMarked;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.text.MessageFormat;
@@ -55,6 +57,29 @@ public class GlobalExceptionHandler {
                         .orElse(resolveMessageOrDefault("validation.request.failed", "Request validation failed"));
 
         var applicationError = ApplicationError.validationError("request-body", errorDetails);
+        return ErrorResponseAssembler.toErrorResponseFromApplicationError(applicationError);
+    }
+
+    /**
+     * Handles malformed JSON payloads, invalid enum values, or null primitives during deserialization.
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<?> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        var message = ex.getMostSpecificCause().getMessage();
+        var applicationError = ApplicationError.validationError(
+                "request-body",
+                message != null && !message.isBlank() ? message : resolveMessageOrDefault("validation.request.failed", "Malformed request body")
+        );
+        return ErrorResponseAssembler.toErrorResponseFromApplicationError(applicationError);
+    }
+
+    /**
+     * Handles invalid path or query parameter types (e.g. non-numeric IDs).
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<?> handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        var details = "Invalid value '%s' for parameter '%s'".formatted(ex.getValue(), ex.getName());
+        var applicationError = ApplicationError.validationError("request-parameter", details);
         return ErrorResponseAssembler.toErrorResponseFromApplicationError(applicationError);
     }
 

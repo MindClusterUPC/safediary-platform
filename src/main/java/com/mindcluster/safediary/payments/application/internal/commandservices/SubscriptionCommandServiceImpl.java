@@ -92,10 +92,10 @@ public class SubscriptionCommandServiceImpl implements SubscriptionCommandServic
                     ? command.idempotencyKey().trim()
                     : UUID.randomUUID().toString();
 
-            Subscription subscription = subscriptionRepository.findByPatientAccountId(patientAccountId)
-                    .orElseGet(() -> Subscription.createFree(patientAccountId));
-            subscription.markPendingCheckout(requestedPlan, null);
-            subscriptionRepository.save(subscription);
+            // Keep existing active plan intact until Stripe confirms payment via webhook.
+            if (subscriptionRepository.findByPatientAccountId(patientAccountId).isEmpty()) {
+                subscriptionRepository.save(Subscription.createFree(patientAccountId));
+            }
 
             StripeCheckoutSession session = stripeGatewayClient.createSubscriptionCheckoutSession(
                     patientAccountId,

@@ -80,7 +80,9 @@ public class CareSchedulingQueryServiceImpl implements CareSchedulingQueryServic
         var dayEnd = q.date().plusDays(1).atStartOfDay(zone).toInstant();
         var windows = availability.findActiveByClinicianId(q.clinicianId()).stream().map(AvailabilitySlot::window).toList();
         boolean owner = participant.isPsychologist() && participant.clinicianId().equals(q.clinicianId());
-        return BookableSlotCalculator.calculate(q.date(), zone, windows, quote.durationMinutes(), slotStepMinutes,
+        int step = q.stepMinutes() == null ? slotStepMinutes : q.stepMinutes();
+        if (step < 1 || step > 60) throw new IllegalArgumentException("Slot step must be between 1 and 60 minutes");
+        return BookableSlotCalculator.calculate(q.date(), zone, windows, quote.durationMinutes(), step,
                 appointments.findByClinicianIdOverlapping(q.clinicianId(), dayStart, dayEnd), Instant.now(), owner);
     }
 

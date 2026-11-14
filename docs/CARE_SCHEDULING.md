@@ -12,7 +12,7 @@ repositorios de dominio, adaptadores JPA, resources REST y facade ACL.
 |---|---|
 | `ContactRequest` (aggregate) | Chat privado paciente ↔ psicólogo con sus mensajes. `PENDING` → `ACCEPTED` / `REJECTED`. No es una cita ni da acceso al diario. |
 | `Appointment` (aggregate) | Propuesta (`REQUESTED`), reserva temporal (`HELD`), cita (`CONFIRMED`), `CANCELLED`, `EXPIRED`, `COMPLETED`. Guarda el importe acordado. |
-| `SlotHold` (entity de `Appointment`) | Retención de 1 hora creada al aceptar la propuesta. |
+| `SlotHold` (entity de `Appointment`) | Retención de hasta 1 hora creada al aceptar; vence antes si comienza la cita. |
 | `ClinicalSession` (aggregate) | Videollamada de una cita confirmada: inicio, fin y resultado operativo. |
 | `AvailabilitySlot` | Ventanas semanales reservables del psicólogo (zona `America/Lima`). |
 | `SummaryAccessAudit` | Auditoría de cada lectura del resumen emocional autorizado. |
@@ -20,12 +20,12 @@ repositorios de dominio, adaptadores JPA, resources REST y facade ACL.
 Reglas principales:
 
 - Solo se contacta o reserva a psicólogos **verificados y publicados** en Clinician Directory.
-- Una propuesta debe estar dentro de la disponibilidad, empezar después de la hora de retención y no
+- Una propuesta debe estar dentro de la disponibilidad, empezar en el futuro (incluso el próximo minuto) y no
   chocar con otra reserva activa. Proponer otro horario cancela la propuesta anterior.
 - Solo una reserva activa (`HELD` vigente o `CONFIRMED`) ocupa un horario. Las aceptaciones de la misma
   agenda se serializan con un bloqueo pesimista.
 - Al aceptar, la reserva temporal pide el cobro a Payments (flujo 4 del reporte). La retención vence a la
-  hora; un job (`care-scheduling.hold-expiration.*`) la expira y libera el horario.
+  hora o al inicio de la cita, lo que ocurra primero; un job (`care-scheduling.hold-expiration.*`) la expira y libera el horario. El pago también valida el vencimiento sin depender del job.
 - Solo un pago aprobado, por el importe acordado y para una retención vigente, confirma la cita. Las
   notificaciones duplicadas no confirman otra cita; un pago tardío se devuelve a Payments para reembolso.
   Un pago fallido mantiene la retención para reintentar (pantalla *Pago no completado*).
@@ -72,10 +72,10 @@ Prefijo `/api/v1`. Las horas viajan como instantes ISO-8601 en UTC (`2026-10-09T
 | PATCH | `/contact-requests/{id}/decision` | Psicólogo: `{"accept": true}` abre el chat, `false` lo rechaza | Mi agenda |
 | GET / POST | `/contact-requests/{id}/messages` | Participante: leer o enviar mensajes (máx. 500) | Chat de coordinación |
 | PUT | `/schedule/availability` | Psicólogo: ventanas semanales | — |
-| GET | `/schedule/clinicians/{id}/slots?date=2026-10-09` | Horarios del día; el dueño ve `HELD`/`CONFIRMED`, los demás `UNAVAILABLE` | Mi agenda |
+| GET | `/schedule/clinicians/{id}/slots?date=2026-10-09&stepMinutes=1` | Horarios con precisión de un minuto; `stepMinutes` es opcional (1–60). El dueño ve `HELD`/`CONFIRMED`, los demás `UNAVAILABLE` | Mi agenda |
 | GET | `/schedule/agenda?from=&to=` | Psicólogo: citas del rango (7 días por defecto) | Mi agenda |
 | POST | `/schedule/proposals` | Psicólogo: proponer horario; no reserva ni cobra | Proponer horario |
-| POST | `/schedule/proposals/{appointmentId}/acceptance` | Paciente: aceptar, retener 1 hora y pedir el cobro | Aceptar horario, Reserva temporal |
+| POST | `/schedule/proposals/{appointmentId}/acceptance` | Paciente: aceptar, retener hasta 1 hora o hasta el inicio y pedir el cobro | Aceptar horario, Reserva temporal |
 | GET | `/appointments` | Paciente: propuestas, reservas y citas; la app agrupa por `status` en Próximas, Pendientes e Historial | Mis citas |
 | POST | `/appointments/{id}/cancellation` | Participante: cancelar y liberar el horario | Cancelar reserva |
 | GET | `/appointments/{id}/session` | Participante: estado de la sesión | Sala de espera |

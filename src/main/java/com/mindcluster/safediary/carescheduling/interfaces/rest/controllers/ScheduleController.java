@@ -36,8 +36,9 @@ public class ScheduleController {
     }
     @GetMapping("/clinicians/{clinicianId}/slots") @Operation(summary="Bookable slots of one day; only the agenda owner sees held and confirmed slots")
     public List<BookableSlotResource> slots(@PathVariable Long clinicianId,
-                                            @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate date) {
-        return queries.handle(new GetBookableSlotsQuery(iam.currentActor(), clinicianId, date)).stream()
+                                            @RequestParam @DateTimeFormat(iso=DateTimeFormat.ISO.DATE) LocalDate date,
+                                            @RequestParam(required=false) Integer stepMinutes) {
+        return queries.handle(new GetBookableSlotsQuery(iam.currentActor(), clinicianId, date, stepMinutes)).stream()
                 .map(CareSchedulingResourceAssembler::slot).toList();
     }
     @GetMapping("/agenda") @Operation(summary="Psychologist: professional agenda; defaults to the next 7 days")
@@ -49,7 +50,7 @@ public class ScheduleController {
         return ResponseEntityAssembler.toResponseEntityFromResult(commands.handle(new ProposeScheduleCommand(iam.currentActor(),
                 r.contactRequestId(), r.startsAt())), CareSchedulingResourceAssembler::appointment, HttpStatus.CREATED);
     }
-    @PostMapping("/proposals/{appointmentId}/acceptance") @Operation(summary="Patient: accept, hold the slot for one hour and request the charge")
+    @PostMapping("/proposals/{appointmentId}/acceptance") @Operation(summary="Patient: accept and request the charge; hold expires after one hour or at appointment start, whichever comes first")
     public ResponseEntity<?> accept(@PathVariable Long appointmentId) {
         return ResponseEntityAssembler.toResponseEntityFromResult(commands.handle(new AcceptScheduleCommand(iam.currentActor(),
                 appointmentId)), CareSchedulingResourceAssembler::appointment, HttpStatus.OK);

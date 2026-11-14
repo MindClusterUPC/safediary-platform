@@ -12,7 +12,7 @@ import java.util.Objects;
 
 /**
  * Agreed schedule between a patient and a psychologist. While REQUESTED it is only a proposal; HELD keeps the slot
- * for one hour while the patient pays; only an approved payment for a live hold makes it CONFIRMED.
+ * for up to one hour while the patient pays, never beyond its start; only an approved payment for a live hold makes it CONFIRMED.
  */
 @Getter
 public class Appointment extends AbstractDomainAggregateRoot<Appointment> {
@@ -45,8 +45,8 @@ public class Appointment extends AbstractDomainAggregateRoot<Appointment> {
 
     public static Appointment propose(ContactRequest request, AppointmentSlot slot, AgreedAmount amount, Instant now) {
         if (!request.isOpen()) throw new IllegalStateException("The contact request is no longer open");
-        if (!slot.startsAt().isAfter(now.plus(HOLD_DURATION)))
-            throw new IllegalArgumentException("A proposal must start after the one-hour payment hold");
+        if (!slot.startsAt().isAfter(now))
+            throw new IllegalArgumentException("A proposal must start in the future");
         return new Appointment(null, request.getId(), request.getPatientAccountId(), request.getClinicianId(), slot,
                 amount, AppointmentStatus.REQUESTED, null, null);
     }
@@ -66,11 +66,12 @@ public class Appointment extends AbstractDomainAggregateRoot<Appointment> {
 
     public MeetingAccessWindow accessWindow() { return MeetingAccessWindow.of(slot); }
 
-    /** The patient accepts the proposal: the slot is held for one hour without confirming the appointment. */
+    /** The payment hold lasts up to one hour and expires no later than the appointment start. */
     public void acceptAndHold(Instant now) {
         if (status != AppointmentStatus.REQUESTED) throw new IllegalStateException("Only a pending proposal can be accepted");
         if (!slot.startsAt().isAfter(now)) throw new IllegalStateException("The proposed schedule has already passed");
-        hold = SlotHold.start(now, HOLD_DURATION);
+        var timeUntilStart = Duration.between(now, slot.startsAt());
+        hold = SlotHold.start(now, timeUntilStart.compareTo(HOLD_DURATION) < 0 ? timeUntilStart : HOLD_DURATION);
         status = AppointmentStatus.HELD;
         registerDomainEvent(new CareSchedulingDomainEvent("ScheduleAccepted", contactRequestId, id));
         registerDomainEvent(new CareSchedulingDomainEvent("SlotHeld", contactRequestId, id));

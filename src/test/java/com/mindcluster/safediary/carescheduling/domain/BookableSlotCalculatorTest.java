@@ -37,10 +37,26 @@ class BookableSlotCalculatorTest {
         assertThat(patient.get(1).availability()).isEqualTo(SlotAvailability.UNAVAILABLE);
     }
 
-    @Test void slotsThatCannotBeHeldBeforeStartingAreUnavailable() {
+    @Test void futureSlotsWithinAnHourRemainBookableWhilePastSlotsAreUnavailable() {
         var windows = List.of(new AvailabilityWindow(DayOfWeek.FRIDAY, LocalTime.of(9, 0), LocalTime.of(11, 0)));
         var almostThere = DAY.atTime(9, 30).atZone(LIMA).toInstant();
         var slots = BookableSlotCalculator.calculate(DAY, LIMA, windows, 50, 60, List.of(), almostThere, true);
-        assertThat(slots).extracting(BookableSlot::availability).containsExactly(SlotAvailability.UNAVAILABLE, SlotAvailability.UNAVAILABLE);
+        assertThat(slots).extracting(BookableSlot::availability).containsExactly(SlotAvailability.UNAVAILABLE, SlotAvailability.FREE);
+    }
+
+    @Test void nextMinuteIsBookableAndConfirmedRangesStillBlockOverlaps() {
+        var windows = List.of(new AvailabilityWindow(DayOfWeek.FRIDAY, LocalTime.of(17, 0), LocalTime.of(20, 0)));
+        var now = DAY.atTime(17, 26, 30).atZone(LIMA).toInstant();
+        var start = DAY.atTime(17, 27).atZone(LIMA).toInstant();
+        var slots = BookableSlotCalculator.calculate(DAY, LIMA, windows, 50, 1, List.of(), now, true);
+        assertThat(slots.stream().filter(s -> s.startsAt().equals(start)).findFirst().orElseThrow().availability())
+                .isEqualTo(SlotAvailability.FREE);
+        var appointment = held(LocalTime.of(17, 27));
+        appointment.confirmPayment("PAID", new BigDecimal("120.00"), "PEN", NOW.plusSeconds(1));
+        var occupied = BookableSlotCalculator.calculate(DAY, LIMA, windows, 50, 1, List.of(appointment), now, true);
+        assertThat(occupied.stream().filter(s -> s.startsAt().equals(start.plusSeconds(60))).findFirst().orElseThrow().availability())
+                .isEqualTo(SlotAvailability.CONFIRMED);
+        assertThat(occupied.stream().filter(s -> s.startsAt().equals(start.plusSeconds(3000))).findFirst().orElseThrow().availability())
+                .isEqualTo(SlotAvailability.FREE);
     }
 }

@@ -168,7 +168,7 @@ public class CareSchedulingCommandServiceImpl implements CareSchedulingCommandSe
         });
     }
 
-    // HoldSlotHandler: the patient accepts, the slot is held for one hour and the charge is requested to Payments.
+    // HoldSlotHandler: reserve until the earlier of one hour or appointment start, then request the charge.
     public Result<Appointment, ApplicationError> handle(AcceptScheduleCommand c) {
         return attempt(() -> {
             var patient = policy.patient(c.actor());

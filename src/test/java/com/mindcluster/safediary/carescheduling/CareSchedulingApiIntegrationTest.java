@@ -108,6 +108,26 @@ class CareSchedulingApiIntegrationTest {
                         .formatted(appointment.get("paymentReference").asString(), approved)));
     }
 
+    @Test void minutePrecisionSlotsSupportArbitraryTimesAndKeepConflictChecks() throws Exception {
+        long clinician = publishedClinician();
+        long request = contact(clinician, PATIENT);
+        var start = at(15).plusSeconds(27 * 60);
+        as(get("/api/v1/schedule/clinicians/" + clinician + "/slots")
+                .param("date", day.toString()).param("stepMinutes", "1"), PSYCHOLOGIST, "PSYCHOLOGIST")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(671));
+        for (String step : new String[]{"0", "61"}) {
+            as(get("/api/v1/schedule/clinicians/" + clinician + "/slots")
+                    .param("date", day.toString()).param("stepMinutes", step), PSYCHOLOGIST, "PSYCHOLOGIST")
+                    .andExpect(status().isBadRequest());
+        }
+        long id = read(propose(request, start).andExpect(status().isCreated())).get("id").asLong();
+        var reservation = read(as(post("/api/v1/schedule/proposals/" + id + "/acceptance"), PATIENT, "PATIENT")
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("HELD")));
+        propose(contact(clinician, OTHER_PATIENT), start.plusSeconds(60)).andExpect(status().isConflict());
+        pay(reservation, true).andExpect(jsonPath("$.message").value("CONFIRMED"));
+        propose(contact(clinician, OTHER_PATIENT), start.plusSeconds(50 * 60)).andExpect(status().isCreated());
+    }
+
     @Test void identityIsRequiredAndOnlyParticipantsTakePart() throws Exception {
         mvc.perform(get("/api/v1/appointments")).andExpect(status().isUnauthorized());
         as(get("/api/v1/appointments"), 900, "ADMIN").andExpect(status().isForbidden());

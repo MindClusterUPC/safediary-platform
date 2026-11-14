@@ -9,7 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import java.time.Instant;
 
-/** Expires one-hour holds that were not paid in time and releases their slot for other patients. */
+/** Expires unpaid holds at their payment deadline and releases their slot. */
 @Component
 @ConditionalOnProperty(name = "care-scheduling.hold-expiration.scheduler.enabled", havingValue = "true")
 public class SlotHoldExpirationEventHandler {

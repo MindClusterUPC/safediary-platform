@@ -38,6 +38,6 @@ public final class BookableSlotCalculator {
             if (!ownerView) return SlotAvailability.UNAVAILABLE;
             return occupying.get().getStatus() == AppointmentStatus.CONFIRMED ? SlotAvailability.CONFIRMED : SlotAvailability.HELD;
         }
-        return startsAt.isAfter(now.plus(Appointment.HOLD_DURATION)) ? SlotAvailability.FREE : SlotAvailability.UNAVAILABLE;
+        return startsAt.isAfter(now) ? SlotAvailability.FREE : SlotAvailability.UNAVAILABLE;
     }
 }

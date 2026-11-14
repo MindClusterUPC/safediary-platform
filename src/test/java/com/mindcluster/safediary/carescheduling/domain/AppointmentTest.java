@@ -34,10 +34,38 @@ class AppointmentTest {
         assertThat(appointment.occupiesSlotAt(NOW.plusSeconds(3600))).isFalse();
     }
 
-    @Test void proposalMustLeaveTimeForThePaymentHold() {
-        var soon = NOW.plus(Duration.ofMinutes(30));
-        assertThatThrownBy(() -> Appointment.propose(request(), new AppointmentSlot(soon, soon.plusSeconds(3000), "America/Lima"),
-                new AgreedAmount(BigDecimal.TEN, "PEN"), NOW)).isInstanceOf(IllegalArgumentException.class);
+    @Test void proposalOneMinuteAwayCanBePaidBeforeItsStart() {
+        var soon = NOW.plusSeconds(60);
+        var appointment = Appointment.propose(request(), new AppointmentSlot(soon, soon.plusSeconds(3000), "America/Lima"),
+                new AgreedAmount(BigDecimal.TEN, "PEN"), NOW);
+        appointment.acceptAndHold(NOW.plusSeconds(5));
+        assertThat(appointment.getHold().getExpiresAt()).isEqualTo(soon);
+        appointment.confirmPayment("PAY-SOON", BigDecimal.TEN, "PEN", NOW.plusSeconds(20));
+        assertThat(appointment.getStatus()).isEqualTo(AppointmentStatus.CONFIRMED);
+    }
+
+    @Test void nearTermPaymentCannotConfirmAtOrAfterTheStart() {
+        var soon = NOW.plusSeconds(60);
+        var appointment = Appointment.propose(request(), new AppointmentSlot(soon, soon.plusSeconds(3000), "America/Lima"),
+                new AgreedAmount(BigDecimal.TEN, "PEN"), NOW);
+        appointment.acceptAndHold(NOW.plusSeconds(5));
+        assertThat(appointment.isHoldExpiredAt(soon.minusNanos(1))).isFalse();
+        assertThat(appointment.isHoldExpiredAt(soon)).isTrue();
+        assertThatThrownBy(() -> appointment.confirmPayment("PAY-LATE", BigDecimal.TEN, "PEN", soon))
+                .isInstanceOf(IllegalStateException.class);
+        appointment.expireHold(soon);
+        assertThat(appointment.occupiesSlotAt(soon)).isFalse();
+    }
+
+    @Test void proposalsAtOrBeforeNowAndExpiredAcceptanceAreRejected() {
+        for (var start : new Instant[]{NOW.minusSeconds(1), NOW}) {
+            assertThatThrownBy(() -> Appointment.propose(request(), new AppointmentSlot(start, start.plusSeconds(3000), "America/Lima"),
+                    new AgreedAmount(BigDecimal.TEN, "PEN"), NOW)).isInstanceOf(IllegalArgumentException.class);
+        }
+        var soon = NOW.plusSeconds(60);
+        var appointment = Appointment.propose(request(), new AppointmentSlot(soon, soon.plusSeconds(3000), "America/Lima"),
+                new AgreedAmount(BigDecimal.TEN, "PEN"), NOW);
+        assertThatThrownBy(() -> appointment.acceptAndHold(soon)).isInstanceOf(IllegalStateException.class);
     }
 
     @Test void onlyAMatchingPaymentForAnActiveHoldConfirms() {

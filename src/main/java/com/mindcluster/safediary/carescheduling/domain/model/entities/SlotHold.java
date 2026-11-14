@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
-/** Temporary one-hour lock of the agreed slot while the patient pays. Owned by the Appointment aggregate. */
+/** Temporary lock of the agreed slot while the patient pays. Owned by the Appointment aggregate. */
 @Getter
 public class SlotHold {
     private final Long id;
